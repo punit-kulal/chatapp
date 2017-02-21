@@ -8,44 +8,43 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
-import javafx.scene.input.MouseEvent;
 import javafx.stage.Stage;
 
-import java.io.*;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.UnknownHostException;
 
 public class ControllerIndex {
     public Button Server;
     public Button Client;
     public TextField ipaddress;
-    protected static DataInputStream inputStream;
-    protected static DataOutputStream outputStream;
-    private boolean exit = false;
+    static DataInputStream inputStream;
+    static DataOutputStream outputStream;
     static Socket s;
+
     @FXML
     public void actasClient(ActionEvent actionEvent) {
-        String msg = null, source = "Friend: ";
         Parent chatnode = null;
+        try {
+            s = new Socket(ipaddress.getText(), 25000);
+            inputStream = new DataInputStream(s.getInputStream());
+            outputStream = new DataOutputStream(s.getOutputStream());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         try {
             chatnode = FXMLLoader.load(getClass().getResource("chatbox.fxml"));
         } catch (IOException e) {
             e.printStackTrace();
         }
+        assert chatnode != null;
         Scene chatbox = new Scene(chatnode, 800, 800);
         Stage mystage = (Stage) ((Node) actionEvent.getSource()).getScene().getWindow();
         mystage.setTitle("Client");
         mystage.setScene(chatbox);
-        try {
-            s = new Socket(ipaddress.getText(), 25000);
-            inputStream = new DataInputStream(s.getInputStream());
-            outputStream = new DataOutputStream(s.getOutputStream());
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+
     }
 
     @FXML
@@ -68,8 +67,5 @@ public class ControllerIndex {
         Stage mystage = (Stage) ((Node) actionEvent.getSource()).getScene().getWindow();
         mystage.setTitle("Server");
         mystage.setScene(chatbox);
-    }
-    public void exit(MouseEvent mouseEvent) {
-        exit = true;
     }
 }

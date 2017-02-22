@@ -24,6 +24,7 @@ public class ControllerChat {
     public TextArea chat;
     public TextArea input;
     public Button send;
+    public Button closesession;
     private Task<Void> updater;
 
     @FXML

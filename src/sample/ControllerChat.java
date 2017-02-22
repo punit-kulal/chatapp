@@ -7,6 +7,7 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextArea;
 import javafx.stage.Stage;
@@ -15,19 +16,20 @@ import java.io.IOException;
 
 import static sample.ControllerIndex.*;
 
-/**
- * Created by Punit on 2/21/2017.
+/*
+  Created by Punit Kulal on 2/21/2017.
  */
 public class ControllerChat {
 
     public TextArea chat;
     public TextArea input;
     public Button send;
+    private Task<Void> updater;
 
     @FXML
     public void initialize() {
-        System.out.println("reached initialize");
-        Task<Void> updater = new Task<Void>() {
+        //Task to keep on listening for input from stream
+        updater = new Task<Void>() {
             final String SOURCE = "Friend: ";
 
             @Override
@@ -57,6 +59,7 @@ public class ControllerChat {
         updateScreen(msg, source);
     }
 
+    //Helper method to update current screen
     private void updateScreen(String msg, String source) {
         String chatScreen = chat.getText();
         chat.setText(chatScreen + "\n" + source + msg);
@@ -65,9 +68,17 @@ public class ControllerChat {
 
     public void exit(ActionEvent actionEvent) {
         try {
-            s.close();
+            //Stop current executing task close all sockets
+            updater.cancel();
+            ControllerIndex.outputStream.close();
+            if (listener != null) {
+                ControllerIndex.listener.close();
+            }
+            ControllerIndex.s.close();
+            //Load index page
             Parent node = FXMLLoader.load(getClass().getResource("index.fxml"));
             Stage mystage = (Stage) ((Node) actionEvent.getSource()).getScene().getWindow();
+            mystage.setScene(new Scene(node, 600, 275));
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -26,6 +26,8 @@ public class ControllerChat {
     public Button send;
     public Button closesession;
     private Task<Void> updater;
+    final String E = "Iamclosing";
+    final String EXIT = Integer.toString(E.hashCode());
 
     @FXML
     public void initialize() {
@@ -37,11 +39,28 @@ public class ControllerChat {
             protected Void call() throws Exception {
                 while (!isCancelled()) {
                     String msg = inputStream.readUTF();
+                    if (msg.equals(EXIT))
+                        break;
                     Platform.runLater(() -> {
                         String chatscreen = chat.getText();
                         chat.setText(chatscreen + "\n" + SOURCE + msg);
                     });
                 }
+                Platform.runLater(() -> {
+                    try {
+                        ControllerIndex.outputStream.close();
+                        if (listener != null) {
+                            ControllerIndex.listener.close();
+                        }
+                        ControllerIndex.s.close();
+                        //Load index page
+                        Parent node = FXMLLoader.load(getClass().getResource("index.fxml"));
+                        Stage mystage = (Stage) send.getScene().getWindow();
+                        mystage.setScene(new Scene(node, 600, 275));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                });
                 return null;
             }
         };
@@ -70,6 +89,8 @@ public class ControllerChat {
     @FXML
     public void exit(ActionEvent actionEvent) {
         try {
+            //Notifying the other user to exit.
+            outputStream.writeUTF(EXIT);
             //Stop current executing task close all sockets
             updater.cancel();
             ControllerIndex.outputStream.close();

@@ -36,7 +36,6 @@ public class ControllerChat {
             @Override
             protected Void call() throws Exception {
                 while (!isCancelled()) {
-                    System.out.print("Entered task");
                     String msg = inputStream.readUTF();
                     Platform.runLater(() -> {
                         String chatscreen = chat.getText();
@@ -50,6 +49,7 @@ public class ControllerChat {
         t.start();
     }
 
+    @FXML
     public void sendMessage() {
         String source = "Me: ", msg = input.getText();
         try {
@@ -67,6 +67,7 @@ public class ControllerChat {
         input.setText("");
     }
 
+    @FXML
     public void exit(ActionEvent actionEvent) {
         try {
             //Stop current executing task close all sockets

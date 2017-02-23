@@ -46,27 +46,7 @@ public class ControllerIndex {
 
     @FXML
     public void initialize() {
-        //Defining a task to create a create a ServerSocket and listen for incoming connection
-//        t1 = new Task<Void>() {
-//            @Override
-//            protected Void call() throws Exception {
-//                listener = new ServerSocket(25000);
-//                Platform.runLater(() -> {
-//                    Stage stage = (Stage) server.getScene().getWindow();
-//                    stage.setTitle("Waiting for Friend .... Please wait");
-//                    //Disabling connection buttons
-//                    server.setDisable(true);
-//                    client.setDisable(true);
-//                    cancelServer.setVisible(true);
-//                });
-//                //System.out.println("Reached task server.");
-//                s = listener.accept();
-//                inputStream = new DataInputStream(s.getInputStream());
-//                outputStream = new DataOutputStream(s.getOutputStream());
-//                return null;
-//            }
-//
-//        };
+     // Handler to switch to next window when connection is established
         listenService.setOnSucceeded(new EventHandler<WorkerStateEvent>() {
             @Override
             public void handle(WorkerStateEvent event) {
@@ -85,8 +65,6 @@ public class ControllerIndex {
             }
         });
     }
-//        t1.addEventHandler(WorkerStateEvent.WORKER_STATE_SUCCEEDED,
-//        });
 
     @FXML
     public void actasClient(ActionEvent actionEvent) {
@@ -99,6 +77,7 @@ public class ControllerIndex {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        // Switch to next window when connection is established
         try {
             chatnode = FXMLLoader.load(getClass().getResource("chatbox.fxml"));
         } catch (IOException e) {
@@ -109,64 +88,19 @@ public class ControllerIndex {
         Stage mystage = (Stage) ((Node) actionEvent.getSource()).getScene().getWindow();
         mystage.setTitle("client");
         mystage.setScene(chatbox);
-
     }
 
     @FXML
-    public void actAsServer(ActionEvent actionEvent) {
-        //Start a thread to listen as server
-        System.out.println(listenService.getState());
-        //if(listenService.getState().equals(Worker.State.CANCELLED));
+    public void actAsServer() {
+        //Start a service to listen as server
         listenService.start();
     }
 
+    @FXML
     public void cancelServer(ActionEvent actionEvent) throws IOException {
-        //Close currently listening service;
-        System.out.println(listenService.getState());
-        System.out.println("cancelling");
+        //Close currently listening service and Enable buttons when server listen is cancelled.
         listenService.cancel();
-        System.out.println(listenService.getState());
-        System.out.println("resetting");
         listenService.reset();
-        System.out.println(listenService.getState());
-        //Recreate task for listening
-        /*t1 = new Task<Void>() {
-            @Override
-            protected Void call() throws IOException {
-                listener = new ServerSocket(25000);
-                Platform.runLater(() -> {
-                    Stage stage = (Stage) server.getScene().getWindow();
-                    stage.setTitle("Waiting for Friend .... Please wait");
-                    //Disabling connection buttons
-                    server.setDisable(true);
-                    client.setDisable(true);
-                    cancelServer.setVisible(true);
-                });
-                //System.out.println("Reached task server.");
-                s = listener.accept();
-                inputStream = new DataInputStream(s.getInputStream());
-                outputStream = new DataOutputStream(s.getOutputStream());
-                return null;
-            }
-        };*/
-        //Adding Eventhandler to change scene when connection is set up
-//        t1.addEventHandler(WorkerStateEvent.WORKER_STATE_SUCCEEDED, new EventHandler<WorkerStateEvent>() {
-//            @Override
-//            public void handle(WorkerStateEvent event) {
-//                Parent chatnode = null;
-//                try {
-//                    chatnode = FXMLLoader.load(getClass().getResource("chatbox.fxml"));
-//                } catch (IOException e) {
-//                    e.printStackTrace();
-//                }
-//                assert chatnode != null;
-//                Scene chatbox = new Scene(chatnode, 800, 800);
-//                Stage stage = (Stage) server.getScene().getWindow();
-//                stage.setTitle("server");
-//                stage.setScene(chatbox);
-//            }
-//        });
-        //Enable buttons when server listen is cancelled.
         cancelServer.setVisible(false);
         server.setDisable(false);
         client.setDisable(false);
@@ -175,13 +109,18 @@ public class ControllerIndex {
         mystage.setTitle("ChatApp");
     }
 
+// A service which listens for connection
     class ListenService extends Service {
         @Override
         protected Task createTask() {
             Task t1 = new Task() {
                 @Override
                 protected Object call(){
-
+                    try {
+                        listener = new ServerSocket(25000);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                     Platform.runLater(() -> {
                         Stage stage = (Stage) server.getScene().getWindow();
                         stage.setTitle("Waiting for Friend .... Please wait");
@@ -190,12 +129,6 @@ public class ControllerIndex {
                         client.setDisable(true);
                         cancelServer.setVisible(true);
                     });
-                    try {
-                        listener = new ServerSocket(25000);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                    //System.out.println("Reached task server.");
                     try {
                         s = listener.accept();
                         inputStream = new DataInputStream(s.getInputStream());
@@ -206,7 +139,6 @@ public class ControllerIndex {
                     return null;
                 }
             };
-            //Close the Serversocket when listener fails or get cancelled.
             t1.addEventHandler(WorkerStateEvent.WORKER_STATE_CANCELLED, closeEvent);
             t1.addEventHandler(WorkerStateEvent.WORKER_STATE_FAILED, closeEvent);
             return t1;

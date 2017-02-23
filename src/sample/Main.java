@@ -20,8 +20,11 @@ public class Main extends Application {
     //To close sockets when close butoon is clicked
     @Override
     public void stop() throws Exception {
+        if(ControllerIndex.outputStream!=null)
         ControllerIndex.outputStream.close();
+        if(ControllerIndex.listener!=null)
         ControllerIndex.listener.close();
+        if (ControllerIndex.s!=null)
         ControllerIndex.s.close();
     }
 
@@ -31,4 +34,4 @@ public class Main extends Application {
 }
 
 
-//TODO Create a service to manage all task
+

@@ -32,12 +32,12 @@ public class ControllerIndex {
     public Button cancelServer;
     //private Task<Void> t1;
     private ListenService listenService = new ListenService();
-    private EventHandler<WorkerStateEvent> closeEvent= new EventHandler<WorkerStateEvent>() {
+    private EventHandler<WorkerStateEvent> closeEvent = new EventHandler<WorkerStateEvent>() {
         @Override
         public void handle(WorkerStateEvent event) {
             try {
-                if(listener!=null)
-                listener.close();
+                if (listener != null)
+                    listener.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -84,9 +84,6 @@ public class ControllerIndex {
 
             }
         });
-        //Close the Serversocket when listener fails or get cancelled.
-        listenService.setOnCancelled(closeEvent);
-        listenService.setOnFailed(closeEvent);
     }
 //        t1.addEventHandler(WorkerStateEvent.WORKER_STATE_SUCCEEDED,
 //        });
@@ -119,12 +116,19 @@ public class ControllerIndex {
     public void actAsServer(ActionEvent actionEvent) {
         //Start a thread to listen as server
         System.out.println(listenService.getState());
+        //if(listenService.getState().equals(Worker.State.CANCELLED));
         listenService.start();
     }
 
     public void cancelServer(ActionEvent actionEvent) throws IOException {
         //Close currently listening service;
+        System.out.println(listenService.getState());
+        System.out.println("cancelling");
         listenService.cancel();
+        System.out.println(listenService.getState());
+        System.out.println("resetting");
+        listenService.reset();
+        System.out.println(listenService.getState());
         //Recreate task for listening
         /*t1 = new Task<Void>() {
             @Override
@@ -170,32 +174,42 @@ public class ControllerIndex {
         Stage mystage = (Stage) ((Node) actionEvent.getSource()).getScene().getWindow();
         mystage.setTitle("ChatApp");
     }
-    class ListenService extends Service{
+
+    class ListenService extends Service {
         @Override
         protected Task createTask() {
-            System.out.println("reached into task ");
-            try {
-                listener = new ServerSocket(25000);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            Platform.runLater(() -> {
-                Stage stage = (Stage) server.getScene().getWindow();
-                stage.setTitle("Waiting for Friend .... Please wait");
-                //Disabling connection buttons
-                server.setDisable(true);
-                client.setDisable(true);
-                cancelServer.setVisible(true);
-            });
-            //System.out.println("Reached task server.");
-            try {
-                s = listener.accept();
-                inputStream = new DataInputStream(s.getInputStream());
-                outputStream = new DataOutputStream(s.getOutputStream());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            return null;
+            Task t1 = new Task() {
+                @Override
+                protected Object call(){
+
+                    Platform.runLater(() -> {
+                        Stage stage = (Stage) server.getScene().getWindow();
+                        stage.setTitle("Waiting for Friend .... Please wait");
+                        //Disabling connection buttons
+                        server.setDisable(true);
+                        client.setDisable(true);
+                        cancelServer.setVisible(true);
+                    });
+                    try {
+                        listener = new ServerSocket(25000);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    //System.out.println("Reached task server.");
+                    try {
+                        s = listener.accept();
+                        inputStream = new DataInputStream(s.getInputStream());
+                        outputStream = new DataOutputStream(s.getOutputStream());
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    return null;
+                }
+            };
+            //Close the Serversocket when listener fails or get cancelled.
+            t1.addEventHandler(WorkerStateEvent.WORKER_STATE_CANCELLED, closeEvent);
+            t1.addEventHandler(WorkerStateEvent.WORKER_STATE_FAILED, closeEvent);
+            return t1;
         }
     }
 }

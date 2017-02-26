@@ -33,5 +33,5 @@ public class Main extends Application {
     }
 }
 
-//TODO close self when other has disconnected
-
+//TODO Message that other has disconnected.
+//TODO Make TextScreen scrollable

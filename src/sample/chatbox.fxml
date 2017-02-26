@@ -3,14 +3,14 @@
 <?import javafx.scene.control.TextArea?>
 <GridPane fx:controller="sample.ControllerChat"
           xmlns:fx="http://javafx.com/fxml" alignment="center" hgap="10" vgap="10">
-    <Button fx:id="closesession" onAction="#exit" GridPane.columnIndex="0" GridPane.columnSpan="1" GridPane.rowIndex="0"
+    <Button fx:id="closeSession" onAction="#exit" GridPane.columnIndex="0" GridPane.columnSpan="1" GridPane.rowIndex="0"
             GridPane.rowSpan="1">Close Session
     </Button>
     <TextArea fx:id="chat" GridPane.columnIndex="0" GridPane.columnSpan="10" GridPane.rowIndex="1"
-              GridPane.rowSpan="10" editable="false">Your chat will appear here.
+              GridPane.rowSpan="10" editable="false" promptText="Your chat will appear here.">
     </TextArea>
     <TextArea fx:id="input" GridPane.columnIndex="0" GridPane.columnSpan="8" GridPane.rowIndex="11"
-              GridPane.rowSpan="3">Type your messages here
+              GridPane.rowSpan="1" promptText="Type your messages here">
     </TextArea>
     <Button fx:id="send" onAction="#sendMessage" GridPane.columnIndex="8" GridPane.columnSpan="1" GridPane.rowIndex="11"
             GridPane.rowSpan="3">Send

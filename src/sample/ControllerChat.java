@@ -24,10 +24,10 @@ public class ControllerChat {
     public TextArea chat;
     public TextArea input;
     public Button send;
-    public Button closesession;
+    public Button closeSession;
     private Task<Void> updater;
-    final String E = "Iamclosing";
-    final String EXIT = Integer.toString(E.hashCode());
+    private final String E = "Iamclosing";
+    private final String EXIT = Integer.toString(E.hashCode());
 
     @FXML
     public void initialize() {
@@ -41,11 +41,13 @@ public class ControllerChat {
                     String msg = inputStream.readUTF();
                     if (msg.equals(EXIT))
                         break;
+                    //Updating screen
                     Platform.runLater(() -> {
                         String chatscreen = chat.getText();
                         chat.setText(chatscreen + "\n" + SOURCE + msg);
                     });
                 }
+                //Quiting to index because server has left.
                 Platform.runLater(() -> {
                     try {
                         ControllerIndex.outputStream.close();
@@ -56,6 +58,7 @@ public class ControllerChat {
                         //Load index page
                         Parent node = FXMLLoader.load(getClass().getResource("index.fxml"));
                         Stage mystage = (Stage) send.getScene().getWindow();
+                        mystage.setTitle("ChatApp");
                         mystage.setScene(new Scene(node, 600, 275));
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -101,6 +104,7 @@ public class ControllerChat {
             //Load index page
             Parent node = FXMLLoader.load(getClass().getResource("index.fxml"));
             Stage mystage = (Stage) ((Node) actionEvent.getSource()).getScene().getWindow();
+            mystage.setTitle("ChatApp");
             mystage.setScene(new Scene(node, 600, 275));
         } catch (IOException e) {
             e.printStackTrace();

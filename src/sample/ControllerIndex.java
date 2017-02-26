@@ -22,13 +22,13 @@ import java.net.ServerSocket;
 import java.net.Socket;
 
 public class ControllerIndex {
-    public Button server;
-    public Button client;
-    public TextField ipaddress;
     static DataInputStream inputStream;
     static DataOutputStream outputStream;
     static Socket s;
     static ServerSocket listener;
+    public Button server;
+    public Button client;
+    public TextField ipaddress;
     public Button cancelServer;
     //private Task<Void> t1;
     private ListenService listenService = new ListenService();
@@ -46,7 +46,7 @@ public class ControllerIndex {
 
     @FXML
     public void initialize() {
-     // Handler to switch to next window when connection is established
+        // Handler to switch to next window when connection is established
         listenService.setOnSucceeded(new EventHandler<WorkerStateEvent>() {
             @Override
             public void handle(WorkerStateEvent event) {
@@ -68,26 +68,40 @@ public class ControllerIndex {
 
     @FXML
     public void actasClient(ActionEvent actionEvent) {
-        Parent chatnode = null;
-        //Create a socket to connect to server.
-        try {
-            s = new Socket(ipaddress.getText(), 25000);
-            inputStream = new DataInputStream(s.getInputStream());
-            outputStream = new DataOutputStream(s.getOutputStream());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        // Switch to next window when connection is established
-        try {
-            chatnode = FXMLLoader.load(getClass().getResource("chatbox.fxml"));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        assert chatnode != null;
-        Scene chatbox = new Scene(chatnode, 800, 800);
-        Stage mystage = (Stage) ((Node) actionEvent.getSource()).getScene().getWindow();
-        mystage.setTitle("client");
-        mystage.setScene(chatbox);
+        /*
+        Encapsulating the logic in a task to improve GUI response.
+        A task which Create a socket to connect to server.
+        */
+        Task clientConnector = new Task() {
+            @Override
+            protected Void call() {
+                try {
+                    s = new Socket(ipaddress.getText(), 25000);
+                    inputStream = new DataInputStream(s.getInputStream());
+                    outputStream = new DataOutputStream(s.getOutputStream());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                return null;
+            }
+        };
+        clientConnector.addEventHandler(WorkerStateEvent.WORKER_STATE_SUCCEEDED,event -> {
+            //Handler which changes the scene after connection is set.
+            // Switch to next window when connection is established
+            Parent chatnode=null;
+            try {
+                chatnode = FXMLLoader.load(getClass().getResource("chatbox.fxml"));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            assert chatnode != null;
+            Scene chatbox = new Scene(chatnode, 800, 800);
+            Stage mystage = (Stage) ((Node) actionEvent.getSource()).getScene().getWindow();
+            mystage.setTitle("client");
+            mystage.setScene(chatbox);
+        });
+        new Thread(clientConnector).start();
+
     }
 
     @FXML
@@ -109,13 +123,13 @@ public class ControllerIndex {
         mystage.setTitle("ChatApp");
     }
 
-// A service which listens for connection
+    // A service which listens for connection
     class ListenService extends Service {
         @Override
         protected Task createTask() {
             Task t1 = new Task() {
                 @Override
-                protected Object call(){
+                protected Object call() {
                     try {
                         listener = new ServerSocket(25000);
                     } catch (IOException e) {

@@ -7,30 +7,30 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 public class Main extends Application {
-    @Override
-    public void start(Stage primaryStage) throws Exception {
-        Parent root = FXMLLoader.load(getClass().getResource("index.fxml"));
-        primaryStage.setTitle("ChatApp");
-        Scene index = new Scene(root, 600, 275);
-        primaryStage.setScene(index);
-        primaryStage.show();
-        primaryStage.getOnCloseRequest();
-    }
+	public static void main(String[] args) {
+		launch(args);
+	}
 
-    //To close sockets when close butoon is clicked
-    @Override
-    public void stop() throws Exception {
-        if(ControllerIndex.outputStream!=null)
-        ControllerIndex.outputStream.close();
-        if(ControllerIndex.listener!=null)
-        ControllerIndex.listener.close();
-        if (ControllerIndex.s!=null)
-        ControllerIndex.s.close();
-    }
+	@Override
+	public void start(Stage primaryStage) throws Exception {
+		Parent root = FXMLLoader.load(getClass().getResource("index.fxml"));
+		primaryStage.setTitle("ChatApp");
+		Scene index = new Scene(root, 600, 275);
+		primaryStage.setScene(index);
+		primaryStage.show();
+		primaryStage.getOnCloseRequest();
+	}
 
-    public static void main(String[] args) {
-        launch(args);
-    }
+	//To close sockets when close butoon is clicked
+	@Override
+	public void stop() throws Exception {
+		if (ControllerIndex.outputStream != null)
+			ControllerIndex.outputStream.close();
+		if (ControllerIndex.listener != null)
+			ControllerIndex.listener.close();
+		if (ControllerIndex.s != null)
+			ControllerIndex.s.close();
+	}
 }
 
 //TODO Message that other has disconnected.

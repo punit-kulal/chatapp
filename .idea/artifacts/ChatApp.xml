@@ -1,0 +1,21 @@
+<component name="ArtifactManager">
+  <artifact type="javafx" name="ChatApp">
+    <output-path>$PROJECT_DIR$/out/artifacts/ChatApp</output-path>
+    <properties id="javafx-properties">
+      <options>
+        <option name="appClass" value="sample.Main" />
+        <option name="description" value="jflaksjfks" />
+        <option name="htmlPlaceholderId" value="" />
+        <option name="nativeBundle" value="all" />
+        <option name="title" value="ChatApp" />
+        <option name="vendor" value="student" />
+        <option name="version" value="0.1" />
+      </options>
+    </properties>
+    <root id="root">
+      <element id="archive" name="ChatApp.jar">
+        <element id="module-output" name="ChatApp" />
+      </element>
+    </root>
+  </artifact>
+</component>

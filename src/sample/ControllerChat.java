@@ -27,11 +27,16 @@ public class ControllerChat {
     public Button send;
     public Button closeSession;
     private Task<Void> updater;
+    String ME,FRIEND;
     private final String E = "Iamclosing";
     private final String EXIT = Integer.toString(E.hashCode());
 
+
     @FXML
     public void initialize() {
+        Name chatters= (Name) chat.getScene().getUserData();
+        ME=chatters.ME;
+        FRIEND = chatters.FRIEND;
         chat.textProperty().addListener(observable -> chat.setScrollTop(Double.MAX_VALUE));
         //Task to keep on listening for input from stream
         updater = new Task<Void>() {
@@ -44,7 +49,7 @@ public class ControllerChat {
                     if (msg.equals(EXIT))
                         break;
                     //Updating screen
-                    Platform.runLater(() -> updateScreen(msg,SOURCE));
+                    Platform.runLater(() -> updateScreen(msg,""));
                 }
                 //Quiting to index because server has left.
                 Platform.runLater(() -> forcedExit());
@@ -83,7 +88,7 @@ public class ControllerChat {
         if(msg.equals(""))
             return;
         try {
-            outputStream.writeUTF(msg);
+            outputStream.writeUTF(ME+": "+msg);
         } catch (IOException e) {
             e.printStackTrace();
         }

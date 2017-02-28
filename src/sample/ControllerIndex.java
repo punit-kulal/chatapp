@@ -5,6 +5,7 @@ import javafx.concurrent.Service;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.ActionEvent;
+import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -30,6 +31,9 @@ public class ControllerIndex {
     public Button client;
     public TextField ipaddress;
     public Button cancelServer;
+    public TextField me;
+    public TextField friend;
+
     //private Task<Void> t1;
     private ListenService listenService = new ListenService();
     private EventHandler<WorkerStateEvent> closeEvent = new EventHandler<WorkerStateEvent>() {
@@ -58,6 +62,7 @@ public class ControllerIndex {
                 }
                 assert chatnode != null;
                 Scene chatbox = new Scene(chatnode, 800, 800);
+                chatbox.setUserData(new Name(me.getText(),friend.getText()));
                 Stage stage = (Stage) server.getScene().getWindow();
                 stage.setTitle("server");
                 stage.setScene(chatbox);
@@ -85,7 +90,7 @@ public class ControllerIndex {
                 return null;
             }
         };
-        clientConnector.addEventHandler(WorkerStateEvent.WORKER_STATE_SUCCEEDED,event -> {
+        clientConnector.addEventHandler(WorkerStateEvent.WORKER_STATE_SUCCEEDED, (Event event) -> {
             //Handler which changes the scene after connection is set.
             // Switch to next window when connection is established
             Parent chatnode=null;
@@ -96,6 +101,7 @@ public class ControllerIndex {
             }
             assert chatnode != null;
             Scene chatbox = new Scene(chatnode, 800, 800);
+            chatbox.setUserData(new Name(me.getText(),friend.getText()));
             Stage mystage = (Stage) ((Node) actionEvent.getSource()).getScene().getWindow();
             mystage.setTitle("client");
             mystage.setScene(chatbox);
@@ -157,5 +163,13 @@ public class ControllerIndex {
             t1.addEventHandler(WorkerStateEvent.WORKER_STATE_FAILED, closeEvent);
             return t1;
         }
+    }
+}
+class Name{
+    public final String ME,FRIEND;
+
+    Name(String me, String f) {
+        ME = me;
+        FRIEND = f;
     }
 }

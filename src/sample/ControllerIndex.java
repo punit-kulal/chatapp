@@ -1,5 +1,6 @@
 package sample;
 
+import com.google.gson.Gson;
 import javafx.application.Platform;
 import javafx.concurrent.Service;
 import javafx.concurrent.Task;
@@ -15,17 +16,20 @@ import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
 import javafx.stage.Stage;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.HashMap;
 
 public class ControllerIndex {
     static DataInputStream inputStream;
     static DataOutputStream outputStream;
     static Socket s;
     static ServerSocket listener;
+    private HashMap<String,String> contacts = new HashMap<>();
+    private Gson converter = new Gson();
     public Button server;
     public Button client;
     public TextField ipaddress;
@@ -34,8 +38,6 @@ public class ControllerIndex {
     public TextField friend;
     static final String ME="ME",FRIEND="FRIEND";
 
-
-    //private Task<Void> t1;
     private ListenService listenService = new ListenService();
     private EventHandler<WorkerStateEvent> closeEvent = new EventHandler<WorkerStateEvent>() {
         @Override
@@ -63,7 +65,23 @@ public class ControllerIndex {
         */
         Task clientConnector = new Task() {
             @Override
-            protected Void call() {
+            protected Void call() throws IOException {
+                if(Files.exists(Paths.get("contact.json"))) {
+                    FileReader reader = new FileReader("contact.json");
+                    contacts = converter.fromJson(reader,HashMap.class);
+                }
+                //if(ipaddress.getText().equals(""))
+                //TODO Get ipaddress from hashmap or inform not in storage.
+                if(!contacts.containsKey(friend.getText().toLowerCase())){
+                    contacts.put(friend.getText().toLowerCase(),ipaddress.getText().trim());
+                    String jsonMap = converter.toJson(contacts);
+                    System.out.println(jsonMap);
+                    if(!Files.exists(Paths.get("contact.json")))
+                        Files.createFile(Paths.get("contact.json"));
+                    FileWriter writer =new FileWriter("contact.json");
+                    writer.write(jsonMap);
+                    writer.close();
+                }
                 try {
                     s = new Socket(ipaddress.getText(), 25000);
                     inputStream = new DataInputStream(s.getInputStream());
@@ -71,6 +89,7 @@ public class ControllerIndex {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+
                 return null;
             }
         };

@@ -5,7 +5,6 @@ import javafx.concurrent.Service;
 import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.ActionEvent;
-import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -33,6 +32,8 @@ public class ControllerIndex {
     public Button cancelServer;
     public TextField me;
     public TextField friend;
+    static final String ME="ME",FRIEND="FRIEND";
+
 
     //private Task<Void> t1;
     private ListenService listenService = new ListenService();
@@ -51,24 +52,7 @@ public class ControllerIndex {
     @FXML
     public void initialize() {
         // Handler to switch to next window when connection is established
-        listenService.setOnSucceeded(new EventHandler<WorkerStateEvent>() {
-            @Override
-            public void handle(WorkerStateEvent event) {
-                Parent chatnode = null;
-                try {
-                    chatnode = FXMLLoader.load(getClass().getResource("chatbox.fxml"));
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                assert chatnode != null;
-                Scene chatbox = new Scene(chatnode, 800, 800);
-                chatbox.setUserData(new Name(me.getText(),friend.getText()));
-                Stage stage = (Stage) server.getScene().getWindow();
-                stage.setTitle("server");
-                stage.setScene(chatbox);
-
-            }
-        });
+        listenService.setOnSucceeded(event -> changeScene(me,"Server"));
     }
 
     @FXML
@@ -90,24 +74,29 @@ public class ControllerIndex {
                 return null;
             }
         };
-        clientConnector.addEventHandler(WorkerStateEvent.WORKER_STATE_SUCCEEDED, (Event event) -> {
-            //Handler which changes the scene after connection is set.
-            // Switch to next window when connection is established
-            Parent chatnode=null;
-            try {
-                chatnode = FXMLLoader.load(getClass().getResource("chatbox.fxml"));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            assert chatnode != null;
-            Scene chatbox = new Scene(chatnode, 800, 800);
-            chatbox.setUserData(new Name(me.getText(),friend.getText()));
-            Stage mystage = (Stage) ((Node) actionEvent.getSource()).getScene().getWindow();
-            mystage.setTitle("client");
-            mystage.setScene(chatbox);
-        });
+        //Handler which changes the scene after connection is set.
+        clientConnector.addEventHandler(WorkerStateEvent.WORKER_STATE_SUCCEEDED,
+                event -> changeScene((Node)actionEvent.getSource(),"Client"));
         new Thread(clientConnector).start();
 
+    }
+
+    // Switch to next window when connection is established
+    private void changeScene(Node n,String title) {
+        Parent chatnode=null;
+        try {
+            chatnode = FXMLLoader.load(getClass().getResource("chatbox.fxml"));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        assert chatnode != null;
+        chatnode.getProperties().put(ME,me.getText());
+        chatnode.getProperties().put(FRIEND, friend.getText());
+        Scene chatbox = new Scene(chatnode, 800, 800);
+        System.out.println(chatnode);
+        Stage mystage = (Stage) n.getScene().getWindow();
+        mystage.setTitle(title);
+        mystage.setScene(chatbox);
     }
 
     @FXML
@@ -165,11 +154,11 @@ public class ControllerIndex {
         }
     }
 }
-class Name{
-    public final String ME,FRIEND;
-
-    Name(String me, String f) {
-        ME = me;
-        FRIEND = f;
-    }
-}
+//class Name{
+//    public final String ME,FRIEND;
+//
+//    Name(String me, String f) {
+//        ME = me;
+//        FRIEND = f;
+//    }
+//}

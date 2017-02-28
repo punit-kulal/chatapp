@@ -27,21 +27,17 @@ public class ControllerChat {
     public Button send;
     public Button closeSession;
     private Task<Void> updater;
-    String ME,FRIEND;
+    private String ME;
+    //FRIEND;
     private final String E = "Iamclosing";
     private final String EXIT = Integer.toString(E.hashCode());
-
+    private boolean set=false;
 
     @FXML
     public void initialize() {
-        Name chatters= (Name) chat.getScene().getUserData();
-        ME=chatters.ME;
-        FRIEND = chatters.FRIEND;
         chat.textProperty().addListener(observable -> chat.setScrollTop(Double.MAX_VALUE));
         //Task to keep on listening for input from stream
         updater = new Task<Void>() {
-            final String SOURCE = "Friend: ";
-
             @Override
             protected Void call() throws Exception {
                 while (!isCancelled()) {
@@ -58,6 +54,13 @@ public class ControllerChat {
         };
         Thread t = new Thread(updater);
         t.start();
+    }
+
+    //Helper method to initialize the name of chatting
+    private void setString() {
+        ME= (String) closeSession.getParent().getProperties().get(ControllerIndex.ME);
+        /* TODO FRIEND = (String) closeSession.getParent().getProperties().get(ControllerIndex.FRIEND); */
+        set=true;
     }
 
     private void forcedExit() {
@@ -84,9 +87,12 @@ public class ControllerChat {
 
     @FXML
     public void sendMessage() {
+
         String source = "Me: ", msg = input.getText();
         if(msg.equals(""))
             return;
+        if(!set)
+            setString();
         try {
             outputStream.writeUTF(ME+": "+msg);
         } catch (IOException e) {
@@ -97,7 +103,6 @@ public class ControllerChat {
 
     //Helper method to update current screen
     private void updateScreen(String msg, String source) {
-        String chatScreen = chat.getText();
         chat.appendText("\n" + source + msg);
         input.setText("");
     }

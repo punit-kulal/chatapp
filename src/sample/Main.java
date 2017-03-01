@@ -33,5 +33,5 @@ public class Main extends Application {
 	}
 }
 
-//TODO GET data from hashmap when ipaddress is not specified
+
 

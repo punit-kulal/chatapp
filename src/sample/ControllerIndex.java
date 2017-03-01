@@ -12,6 +12,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
 import javafx.stage.Stage;
@@ -31,12 +32,13 @@ public class ControllerIndex {
     static ServerSocket listener;
     public Button server;
     public Button client;
-    public TextField ipaddress;
+    public TextField ipaddressField;
     public Button cancelServer;
     public TextField me;
     public TextField friend;
     private HashMap<String, String> contacts = new HashMap<>();
     private Gson converter = new Gson();
+    private String ipAddress;
     private ListenService listenService = new ListenService();
     private EventHandler<WorkerStateEvent> closeEvent = new EventHandler<WorkerStateEvent>() {
         @Override
@@ -65,28 +67,62 @@ public class ControllerIndex {
         Task clientConnector = new Task() {
             @Override
             protected Void call() throws IOException {
+                ipAddress = ipaddressField.getText();
+                System.out.println("1 "+ ipAddress);
                 if (Files.exists(Paths.get("contact.json"))) {
                     FileReader reader = new FileReader("contact.json");
                     contacts = converter.fromJson(reader, HashMap.class);
+                    System.out.println(2);
                 }
-                //if(ipaddress.getText().equals(""))
-                //TODO Get ipaddress from hashmap or inform not in storage.
-                if (!contacts.containsKey(friend.getText().toLowerCase())) {
-                    contacts.put(friend.getText().toLowerCase(), ipaddress.getText().trim());
-                    String jsonMap = converter.toJson(contacts);
-                    System.out.println(jsonMap);
-                    if (!Files.exists(Paths.get("contact.json")))
-                        Files.createFile(Paths.get("contact.json"));
-                    FileWriter writer = new FileWriter("contact.json");
-                    writer.write(jsonMap);
-                    writer.close();
+                //Check storage when ipaddress is empty
+                if (ipaddressField.getText().equals("")) {
+                    System.out.println(3);
+                    //Check if contacts are empty.
+                    if (contacts.isEmpty()) {
+                        Alert emptyIP = new Alert(Alert.AlertType.WARNING);
+                        emptyIP.setTitle("Connection Error");
+                        emptyIP.setContentText("Contacts is empty.");
+                        Platform.runLater(emptyIP::showAndWait);
+                        System.out.println(4);
+                        return null;
+                    }
+                    //check if contact contains the friend name
+                    else if (!contacts.containsKey(friend.getText().toLowerCase())) {
+                        Alert emptyIP = new Alert(Alert.AlertType.WARNING);
+                        emptyIP.setTitle("Connection Error");
+                        emptyIP.setContentText("No such name in contact storage.");
+                        Platform.runLater(emptyIP::showAndWait);
+                        System.out.println(5);
+                        return null;
+                    }
+                    //Assign friend ipadress if friend name is present.
+                    if (contacts.containsKey(friend.getText().toLowerCase())) {
+                        ipAddress = contacts.get(friend.getText().toLowerCase());
+                    }
                 }
+                System.out.println(ipAddress);
                 try {
-                    s = new Socket(ipaddress.getText(), 25000);
+                    s = new Socket(ipAddress, 25000);
                     inputStream = new DataInputStream(s.getInputStream());
                     outputStream = new DataOutputStream(s.getOutputStream());
                 } catch (IOException e) {
                     e.printStackTrace();
+                }
+
+                //Keep contact storage update after socket connection to make sure ipadress is correct.
+                if (s != null) {
+                    // Check if friend is not present in contact or (present in contact but ip address is not empty)
+                     if (!contacts.containsKey(friend.getText().toLowerCase()) ||
+                            (contacts.containsKey(friend.getText().toLowerCase()) &&
+                                    !ipaddressField.getText().equals(""))) {
+                        contacts.put(friend.getText().toLowerCase(), ipaddressField.getText().trim());
+                        String jsonMap = converter.toJson(contacts);
+                        if (!Files.exists(Paths.get("contact.json")))
+                            Files.createFile(Paths.get("contact.json"));
+                        FileWriter writer = new FileWriter("contact.json");
+                        writer.write(jsonMap);
+                        writer.close();
+                    }
                 }
 
                 return null;
@@ -111,7 +147,6 @@ public class ControllerIndex {
         chatnode.getProperties().put(ME, me.getText());
         chatnode.getProperties().put(FRIEND, friend.getText());
         Scene chatbox = new Scene(chatnode, 800, 800);
-        System.out.println(chatnode);
         Stage mystage = (Stage) n.getScene().getWindow();
         mystage.setTitle(title);
         mystage.setScene(chatbox);

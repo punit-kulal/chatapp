@@ -8,6 +8,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextArea;
 import javafx.stage.Stage;
@@ -24,43 +25,30 @@ public class ControllerChat {
     public TextArea chat;
     public TextArea input;
     public Button send;
-    public Button closesession;
+    public Button closeSession;
     private Task<Void> updater;
-    final String E = "Iamclosing";
-    final String EXIT = Integer.toString(E.hashCode());
+    private String ME;
+    //FRIEND;
+    private final String E = "Iamclosing";
+    private final String EXIT = Integer.toString(E.hashCode());
+    private boolean set=false;
 
     @FXML
     public void initialize() {
+        chat.textProperty().addListener(observable -> chat.setScrollTop(Double.MAX_VALUE));
         //Task to keep on listening for input from stream
         updater = new Task<Void>() {
-            final String SOURCE = "Friend: ";
-
             @Override
             protected Void call() throws Exception {
                 while (!isCancelled()) {
                     String msg = inputStream.readUTF();
                     if (msg.equals(EXIT))
                         break;
-                    Platform.runLater(() -> {
-                        String chatscreen = chat.getText();
-                        chat.setText(chatscreen + "\n" + SOURCE + msg);
-                    });
+                    //Updating screen
+                    Platform.runLater(() -> updateScreen(msg,""));
                 }
-                Platform.runLater(() -> {
-                    try {
-                        ControllerIndex.outputStream.close();
-                        if (listener != null) {
-                            ControllerIndex.listener.close();
-                        }
-                        ControllerIndex.s.close();
-                        //Load index page
-                        Parent node = FXMLLoader.load(getClass().getResource("index.fxml"));
-                        Stage mystage = (Stage) send.getScene().getWindow();
-                        mystage.setScene(new Scene(node, 600, 275));
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                });
+                //Quiting to index because server has left.
+                Platform.runLater(() -> forcedExit());
                 return null;
             }
         };
@@ -68,11 +56,45 @@ public class ControllerChat {
         t.start();
     }
 
+    //Helper method to initialize the name of chatting
+    private void setString() {
+        ME= (String) closeSession.getParent().getProperties().get(ControllerIndex.ME);
+        FRIEND = (String) closeSession.getParent().getProperties().get(ControllerIndex.FRIEND);
+        set=true;
+    }
+
+    private void forcedExit() {
+        try {
+            ControllerIndex.outputStream.close();
+            if (listener != null) {
+                ControllerIndex.listener.close();
+            }
+            ControllerIndex.s.close();
+            //Alert for user
+            Alert connectionClosed = new Alert(Alert.AlertType.ERROR);
+            connectionClosed.setTitle("Connection closed.");
+            connectionClosed.setContentText("Seems like "+ FRIEND + " has disconnected.");
+            connectionClosed.showAndWait();
+            //Load index page
+            Parent node = FXMLLoader.load(getClass().getResource("index.fxml"));
+            Stage mystage = (Stage) send.getScene().getWindow();
+            mystage.setTitle("ChatApp");
+            mystage.setScene(new Scene(node, 600, 275));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     @FXML
     public void sendMessage() {
+
         String source = "Me: ", msg = input.getText();
+        if(msg.equals(""))
+            return;
+        if(!set)
+            setString();
         try {
-            outputStream.writeUTF(msg);
+            outputStream.writeUTF(ME+": "+msg);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -81,8 +103,7 @@ public class ControllerChat {
 
     //Helper method to update current screen
     private void updateScreen(String msg, String source) {
-        String chatScreen = chat.getText();
-        chat.setText(chatScreen + "\n" + source + msg);
+        chat.appendText(  source + msg+ "\n");
         input.setText("");
     }
 
@@ -101,6 +122,7 @@ public class ControllerChat {
             //Load index page
             Parent node = FXMLLoader.load(getClass().getResource("index.fxml"));
             Stage mystage = (Stage) ((Node) actionEvent.getSource()).getScene().getWindow();
+            mystage.setTitle("ChatApp");
             mystage.setScene(new Scene(node, 600, 275));
         } catch (IOException e) {
             e.printStackTrace();

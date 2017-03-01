@@ -1,0 +1,11 @@
+get current stage to change scene by getting an elements GETSCENE.GETWINDOW
+
+change the gui from background bt PLATFORM.RUNLATER
+
+always do any task except gui changes in BG THREAD
+
+use artifact , to create EXECUTABLE
+
+OVERRIDE STOP METHOD in main class to close all connections and stuff before exit.
+
+the initialize method is executed when fxml loader is called.

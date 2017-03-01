@@ -25,7 +25,8 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 
 public class ControllerIndex {
-    static final String ME = "ME", FRIEND = "FRIEND";
+    static final String ME = "ME";
+    static String FRIEND = "FRIEND";
     static DataInputStream inputStream;
     static DataOutputStream outputStream;
     static Socket s;
@@ -79,21 +80,25 @@ public class ControllerIndex {
                     System.out.println(3);
                     //Check if contacts are empty.
                     if (contacts.isEmpty()) {
-                        Alert emptyIP = new Alert(Alert.AlertType.WARNING);
-                        emptyIP.setTitle("Connection Error");
-                        emptyIP.setContentText("Contacts is empty.");
-                        Platform.runLater(emptyIP::showAndWait);
+                        Platform.runLater(() -> {
+                            Alert emptyIP = new Alert(Alert.AlertType.WARNING);
+                            emptyIP.setTitle("Connection Error");
+                            emptyIP.setContentText("Contacts is empty.\n Please provide a friend name and valid ipaddress.");
+                            emptyIP.showAndWait();
+                        });
                         System.out.println(4);
-                        return null;
+                        throw new ContactException();
                     }
                     //check if contact contains the friend name
                     else if (!contacts.containsKey(friend.getText().toLowerCase())) {
-                        Alert emptyIP = new Alert(Alert.AlertType.WARNING);
-                        emptyIP.setTitle("Connection Error");
-                        emptyIP.setContentText("No such name in contact storage.");
-                        Platform.runLater(emptyIP::showAndWait);
+                        Platform.runLater(() -> {
+                            Alert emptyIP = new Alert(Alert.AlertType.WARNING);
+                            emptyIP.setTitle("Connection Error");
+                            emptyIP.setContentText("No such name in contact storage.\nPlease provide an ipaddress");
+                            emptyIP.showAndWait();
+                        });
                         System.out.println(5);
-                        return null;
+                        throw  new ContactException();
                     }
                     //Assign friend ipadress if friend name is present.
                     if (contacts.containsKey(friend.getText().toLowerCase())) {
@@ -146,7 +151,7 @@ public class ControllerIndex {
         assert chatnode != null;
         chatnode.getProperties().put(ME, me.getText());
         chatnode.getProperties().put(FRIEND, friend.getText());
-        Scene chatbox = new Scene(chatnode, 800, 800);
+        Scene chatbox = new Scene(chatnode, 800, 400);
         Stage mystage = (Stage) n.getScene().getWindow();
         mystage.setTitle(title);
         mystage.setScene(chatbox);
@@ -207,11 +212,5 @@ public class ControllerIndex {
         }
     }
 }
-//class Name{
-//    public final String ME,FRIEND;
-//
-//    Name(String me, String f) {
-//        ME = me;
-//        FRIEND = f;
-//    }
-//}
+class ContactException extends IOException{
+}

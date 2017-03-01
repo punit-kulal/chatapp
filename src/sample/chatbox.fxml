@@ -7,12 +7,12 @@
             GridPane.rowSpan="1">Close Session
     </Button>
     <TextArea fx:id="chat" GridPane.columnIndex="0" GridPane.columnSpan="10" GridPane.rowIndex="1"
-              GridPane.rowSpan="10" editable="false" promptText="Your chat will appear here." >
+              GridPane.rowSpan="10" editable="false" promptText="Your chat will appear here." minHeight="200" minWidth="200">
     </TextArea>
     <TextArea fx:id="input" GridPane.columnIndex="0" GridPane.columnSpan="8" GridPane.rowIndex="11"
-              GridPane.rowSpan="1" promptText="Type your messages here">
+              GridPane.rowSpan="1" promptText="Type your messages here" minWidth="200" minHeight="50">
     </TextArea>
     <Button fx:id="send" onAction="#sendMessage" GridPane.columnIndex="8" GridPane.columnSpan="1" GridPane.rowIndex="11"
-            GridPane.rowSpan="3">Send
+            GridPane.rowSpan="1">Send
     </Button>
 </GridPane>

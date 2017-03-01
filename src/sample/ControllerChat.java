@@ -59,7 +59,7 @@ public class ControllerChat {
     //Helper method to initialize the name of chatting
     private void setString() {
         ME= (String) closeSession.getParent().getProperties().get(ControllerIndex.ME);
-        /* TODO FRIEND = (String) closeSession.getParent().getProperties().get(ControllerIndex.FRIEND); */
+        FRIEND = (String) closeSession.getParent().getProperties().get(ControllerIndex.FRIEND);
         set=true;
     }
 
@@ -73,7 +73,7 @@ public class ControllerChat {
             //Alert for user
             Alert connectionClosed = new Alert(Alert.AlertType.ERROR);
             connectionClosed.setTitle("Connection closed.");
-            connectionClosed.setContentText("Seems like "+ "friend "+ "has disconnected.");
+            connectionClosed.setContentText("Seems like "+ FRIEND + " has disconnected.");
             connectionClosed.showAndWait();
             //Load index page
             Parent node = FXMLLoader.load(getClass().getResource("index.fxml"));
@@ -103,7 +103,7 @@ public class ControllerChat {
 
     //Helper method to update current screen
     private void updateScreen(String msg, String source) {
-        chat.appendText("\n" + source + msg);
+        chat.appendText(  source + msg+ "\n");
         input.setText("");
     }
 

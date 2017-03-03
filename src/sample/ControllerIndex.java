@@ -18,8 +18,10 @@ import javafx.scene.control.TextField;
 import javafx.stage.Stage;
 
 import java.io.*;
+import java.net.ConnectException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
@@ -31,14 +33,14 @@ public class ControllerIndex {
     static DataOutputStream outputStream;
     static Socket s;
     static ServerSocket listener;
+    static HashMap<String, String> contacts = new HashMap<>();
+    static Gson converter = new Gson();
     public Button server;
     public Button client;
     public TextField ipaddressField;
     public Button cancelServer;
     public TextField me;
     public TextField friend;
-    private HashMap<String, String> contacts = new HashMap<>();
-    private Gson converter = new Gson();
     private String ipAddress;
     private ListenService listenService = new ListenService();
     private EventHandler<WorkerStateEvent> closeEvent = new EventHandler<WorkerStateEvent>() {
@@ -73,31 +75,18 @@ public class ControllerIndex {
                 if (Files.exists(Paths.get("contact.json"))) {
                     FileReader reader = new FileReader("contact.json");
                     contacts = converter.fromJson(reader, HashMap.class);
-                    System.out.println(2);
                 }
                 //Check storage when ipaddress is empty
                 if (ipaddressField.getText().equals("")) {
                     System.out.println(3);
                     //Check if contacts are empty.
                     if (contacts.isEmpty()) {
-                        Platform.runLater(() -> {
-                            Alert emptyIP = new Alert(Alert.AlertType.WARNING);
-                            emptyIP.setTitle("Connection Error");
-                            emptyIP.setContentText("Contacts is empty.\n Please provide a friend name and valid ipaddress.");
-                            emptyIP.showAndWait();
-                        });
-                        System.out.println(4);
+                        updateMessage("Contacts is empty.\n Please provide a friend name and valid ipaddress.");
                         throw new ContactException();
                     }
                     //check if contact contains the friend name
                     else if (!contacts.containsKey(friend.getText().toLowerCase())) {
-                        Platform.runLater(() -> {
-                            Alert emptyIP = new Alert(Alert.AlertType.WARNING);
-                            emptyIP.setTitle("Connection Error");
-                            emptyIP.setContentText("No such name in contact storage.\nPlease provide an ipaddress");
-                            emptyIP.showAndWait();
-                        });
-                        System.out.println(5);
+                        updateMessage("No such name in contact storage.\nPlease provide an ipaddress");
                         throw  new ContactException();
                     }
                     //Assign friend ipadress if friend name is present.
@@ -105,29 +94,19 @@ public class ControllerIndex {
                         ipAddress = contacts.get(friend.getText().toLowerCase());
                     }
                 }
-                System.out.println(ipAddress);
-                try {
-                    s = new Socket(ipAddress, 25000);
-                    inputStream = new DataInputStream(s.getInputStream());
-                    outputStream = new DataOutputStream(s.getOutputStream());
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
-                //Keep contact storage update after socket connection to make sure ipadress is correct.
-                if (s != null) {
+                s = new Socket(ipAddress, 25000);
+                inputStream = new DataInputStream(s.getInputStream());
+                outputStream = new DataOutputStream(s.getOutputStream());
                     // Check if friend is not present in contact or (present in contact but ip address is not empty)
-                     if (!contacts.containsKey(friend.getText().toLowerCase()) ||
-                            (contacts.containsKey(friend.getText().toLowerCase()) &&
-                                    !ipaddressField.getText().equals(""))) {
-                        contacts.put(friend.getText().toLowerCase(), ipaddressField.getText().trim());
-                        String jsonMap = converter.toJson(contacts);
-                        if (!Files.exists(Paths.get("contact.json")))
-                            Files.createFile(Paths.get("contact.json"));
-                        FileWriter writer = new FileWriter("contact.json");
-                        writer.write(jsonMap);
-                        writer.close();
-                    }
+                 if (!contacts.containsKey(friend.getText().toLowerCase()) ||
+                         !ipaddressField.getText().equals("")) {
+                    contacts.put(friend.getText().toLowerCase(), ipaddressField.getText().trim());
+                    String jsonMap = converter.toJson(contacts);
+                    if (!Files.exists(Paths.get("contact.json")))
+                        Files.createFile(Paths.get("contact.json"));
+                    FileWriter writer = new FileWriter("contact.json");
+                    writer.write(jsonMap);
+                    writer.close();
                 }
 
                 return null;
@@ -136,6 +115,29 @@ public class ControllerIndex {
         //Handler which changes the scene after connection is set.
         clientConnector.addEventHandler(WorkerStateEvent.WORKER_STATE_SUCCEEDED,
                 event -> changeScene((Node) actionEvent.getSource(), "Client"));
+
+        //Handler which shows alert according to exception.
+        clientConnector.addEventHandler(WorkerStateEvent.WORKER_STATE_FAILED,event -> {
+            if (clientConnector.getException() instanceof UnknownHostException){
+                Alert incorrectIP = new Alert(Alert.AlertType.ERROR);
+                incorrectIP.setTitle("Unable to connect");
+                incorrectIP.setContentText("The IP Address entered is invalid.");
+                incorrectIP.showAndWait();
+            }
+            else if (clientConnector.getException() instanceof ConnectException){
+                Alert incorrectIP = new Alert(Alert.AlertType.ERROR);
+                incorrectIP.setTitle("Unable to connect");
+                incorrectIP.setContentText("Your friend is offline.");
+                incorrectIP.showAndWait();
+            }
+            else {
+                Alert emptyIP = new Alert(Alert.AlertType.WARNING);
+                emptyIP.setTitle("Connection Error");
+                emptyIP.setContentText(clientConnector.getMessage());
+                emptyIP.showAndWait();
+
+            }
+        });
         new Thread(clientConnector).start();
 
     }

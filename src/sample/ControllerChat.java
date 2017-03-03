@@ -13,7 +13,12 @@ import javafx.scene.control.Button;
 import javafx.scene.control.TextArea;
 import javafx.stage.Stage;
 
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.HashMap;
 
 import static sample.ControllerIndex.*;
 
@@ -26,18 +31,38 @@ public class ControllerChat {
     public TextArea input;
     public Button send;
     public Button closeSession;
-    private Task<Void> updater;
+    private Task<Void> inputReader;
     private String ME;
-    //FRIEND;
     private final String E = "Iamclosing";
     private final String EXIT = Integer.toString(E.hashCode());
     private boolean set=false;
+    private Task contactUpdater;
 
     @FXML
     public void initialize() {
+        //A task which updates friends connection in the contact if not present.
+        contactUpdater = new Task<Void>() {
+            @Override
+            protected Void call() throws Exception {
+                if (Files.exists(Paths.get("contact.json"))) {
+                    FileReader reader = new FileReader("contact.json");
+                    contacts = converter.fromJson(reader, HashMap.class);
+                }
+                if(!contacts.containsKey(FRIEND)){
+                    contacts.put(FRIEND.toLowerCase(),s.getInetAddress().getHostAddress());
+                    String jsonMap = converter.toJson(contacts);
+                    if (!Files.exists(Paths.get("contact.json")))
+                        Files.createFile(Paths.get("contact.json"));
+                    FileWriter writer = new FileWriter("contact.json");
+                    writer.write(jsonMap);
+                    writer.close();
+                }
+                return null;
+            }
+        };
         chat.textProperty().addListener(observable -> chat.setScrollTop(Double.MAX_VALUE));
         //Task to keep on listening for input from stream
-        updater = new Task<Void>() {
+        inputReader = new Task<Void>() {
             @Override
             protected Void call() throws Exception {
                 while (!isCancelled()) {
@@ -52,7 +77,7 @@ public class ControllerChat {
                 return null;
             }
         };
-        Thread t = new Thread(updater);
+        Thread t = new Thread(inputReader);
         t.start();
     }
 
@@ -61,6 +86,7 @@ public class ControllerChat {
         ME= (String) closeSession.getParent().getProperties().get(ControllerIndex.ME);
         FRIEND = (String) closeSession.getParent().getProperties().get(ControllerIndex.FRIEND);
         set=true;
+        new Thread(contactUpdater).start();
     }
 
     private void forcedExit() {
@@ -113,7 +139,7 @@ public class ControllerChat {
             //Notifying the other user to exit.
             outputStream.writeUTF(EXIT);
             //Stop current executing task close all sockets
-            updater.cancel();
+            inputReader.cancel();
             ControllerIndex.outputStream.close();
             if (listener != null) {
                 ControllerIndex.listener.close();

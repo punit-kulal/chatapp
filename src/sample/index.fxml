@@ -32,5 +32,6 @@
                 onAction="#cancelServer" visible="false">
             Go Back
         </Button>
+        <CheckBox fx:id="encryption">Encryption</CheckBox>
     </HBox>
 </GridPane>

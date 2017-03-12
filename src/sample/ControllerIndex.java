@@ -132,11 +132,16 @@ public class ControllerIndex {
                 if (encryption.isSelected()) {
                     privateKey = keyPair.getPrivate();
                     encryptionState = true;
-                    outputStream.writeBoolean(Boolean.TRUE);
+                    outputStream.writeObject(Boolean.TRUE);
+                    System.out.println("sent true");
                     outputStream.writeObject(keyPair.getPublic());
+                    System.out.println("sent public");
                     publicKey = (PublicKey) inputStream.readObject();
+                    System.out.println("recieved public");
                 } else
-                    outputStream.writeObject(Boolean.FALSE);
+                    {outputStream.writeObject(Boolean.FALSE);
+                    outputStream.flush();
+                    }
                 return null;
             }
         };
@@ -226,12 +231,13 @@ public class ControllerIndex {
                     });
                     try {
                         s = listener.accept();
-                        inputStream = new ObjectInputStream(s.getInputStream());
                         outputStream = new ObjectOutputStream(s.getOutputStream());
+                        inputStream = new ObjectInputStream(s.getInputStream());
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
-                    if (inputStream.readBoolean()) {
+                    encryptionState = (Boolean) inputStream.readObject();
+                    if (encryptionState) {
                         encryptionState = true;
                         privateKey = keyPair.getPrivate();
                         publicKey = (PublicKey) inputStream.readObject();

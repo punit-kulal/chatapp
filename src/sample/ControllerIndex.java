@@ -38,7 +38,7 @@ public class ControllerIndex {
     static ObjectOutputStream outputStream;
     static Socket s;
     static ServerSocket listener;
-    static HashMap<String, String> contacts = new HashMap<>();
+    static HashMap contacts = new HashMap<>();
     static Gson converter = new Gson();
     static Boolean encryptionState = false;
     static PrivateKey privateKey = null;
@@ -50,7 +50,7 @@ public class ControllerIndex {
     public TextField me;
     public TextField friend;
     public CheckBox encryption;
-    Task<KeyPair> keypairGenerator = new Task<KeyPair>() {
+    private Task<KeyPair> keypairGenerator = new Task<KeyPair>() {
         @Override
         protected KeyPair call() throws Exception {
             return KeyPairGenerator.getInstance("RSA").genKeyPair();
@@ -73,9 +73,7 @@ public class ControllerIndex {
 
     @FXML
     public void initialize() {
-        keypairGenerator.setOnSucceeded(event -> {
-            keyPair = keypairGenerator.getValue();
-        });
+        keypairGenerator.setOnSucceeded(event -> keyPair = keypairGenerator.getValue());
         new Thread(keypairGenerator).start();
         // Handler to switch to next window when connection is established
         listenService.setOnSucceeded(event -> changeScene(me, "Server"));
@@ -111,7 +109,7 @@ public class ControllerIndex {
                     }
                     //Assign friend ipadress if friend name is present.
                     if (contacts.containsKey(friend.getText().toLowerCase())) {
-                        ipAddress = contacts.get(friend.getText().toLowerCase());
+                        ipAddress = (String) contacts.get(friend.getText().toLowerCase());
                     }
                 }
                 s = new Socket(ipAddress, 25000);

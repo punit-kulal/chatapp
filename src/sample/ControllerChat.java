@@ -35,8 +35,8 @@ import static sample.ControllerIndex.*;
  */
 public class ControllerChat {
 
-    private final String E = "Iamclosing";
-    private final String EXIT = Integer.toString(E.hashCode());
+    static private final String E = "Iamclosing";
+    static final String EXIT = Integer.toString(E.hashCode());
     public TextArea chat;
     public TextArea input;
     public Button send;
@@ -44,14 +44,20 @@ public class ControllerChat {
     private Task<Void> inputReader;
     private String ME;
     private boolean set = false;
-    private Cipher encryptCipher;
-    private Cipher decryptCipher;
+    static Cipher encryptCipher;
+    private static Cipher decryptCipher;
     private Task contactUpdater;
     private Base64.Encoder encoder;
     private Base64.Decoder decoder;
 
+    @Override
+    protected void finalize() throws Throwable {
+        super.finalize();
+    }
+
     @FXML
     public void initialize() {
+        
         if (encryptionState) {
             try {
                 encoder = Base64.getEncoder();
@@ -60,15 +66,11 @@ public class ControllerChat {
                 encryptCipher.init(Cipher.ENCRYPT_MODE, publicKey);
                 decryptCipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-1AndMGF1Padding");
                 decryptCipher.init(Cipher.DECRYPT_MODE, privateKey);
-            } catch (NoSuchAlgorithmException e) {
-                e.printStackTrace();
-            } catch (NoSuchPaddingException e) {
-                e.printStackTrace();
-            } catch (InvalidKeyException e) {
+            } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException e) {
                 e.printStackTrace();
             }
-            System.out.println("Encrpt "+encryptCipher.hashCode());
-            System.out.println("Decrypt "+decryptCipher.hashCode());
+
+
         }
         //A task which updates friends connection in the contact if not present.
         contactUpdater = new Task<Void>() {
@@ -99,18 +101,16 @@ public class ControllerChat {
                 while (!isCancelled()) {
                     String msg;
                     if (encryptionState) {
-                        System.out.println("in the loop");
+                        
                         input = (byte[])inputStream.readObject();
-                        System.out.println("Recieve message");
+                        
                         msg = new String(decoder.decode(decryptCipher.doFinal(input)),StandardCharsets.UTF_8);
-                        System.out.println("Decrypted :"+ msg);
+                        
                     } else {
                         msg = (String) inputStream.readObject();
                     }
                     if (msg.equals(EXIT))
                         break;
-                    //System.out.println(mymessage);
-                    //Updating screen
                     Platform.runLater(() -> updateScreen(msg, ""));
                 }
                 //Quiting to index because server has left.
@@ -164,20 +164,16 @@ public class ControllerChat {
         try {
             output = ME + ": " + msg;
             if (encryptionState) {
-                System.out.println("in loop");
+                
                 buffer = encryptCipher.doFinal(encoder.encode(output.getBytes(StandardCharsets.UTF_8)));
-                System.out.println("converted to buffer");
+                
                 //Not using write object
                 outputStream.writeObject(buffer);
-                System.out.println("sent message");
+                
             } else {
                 outputStream.writeObject(output);
             }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (BadPaddingException e) {
-            e.printStackTrace();
-        } catch (IllegalBlockSizeException e) {
+        } catch (IOException | BadPaddingException | IllegalBlockSizeException e) {
             e.printStackTrace();
         }
         updateScreen(msg, source);
@@ -193,6 +189,9 @@ public class ControllerChat {
     public void exit(ActionEvent actionEvent) {
         try {
             //Notifying the other user to exit.
+            if (encryptionState){
+                outputStream.writeObject(encryptCipher.doFinal(encoder.encode(EXIT.getBytes(StandardCharsets.UTF_8))));
+            }
             outputStream.writeObject(EXIT);
             //Stop current executing task close all sockets
             inputReader.cancel();
@@ -206,7 +205,7 @@ public class ControllerChat {
             Stage mystage = (Stage) ((Node) actionEvent.getSource()).getScene().getWindow();
             mystage.setTitle("ChatApp");
             mystage.setScene(new Scene(node, 600, 275));
-        } catch (IOException e) {
+        } catch (IOException | IllegalBlockSizeException | BadPaddingException e) {
             e.printStackTrace();
         }
     }

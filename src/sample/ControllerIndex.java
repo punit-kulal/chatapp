@@ -14,6 +14,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.TextField;
 import javafx.stage.Stage;
 
@@ -24,24 +25,39 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.util.HashMap;
 
 public class ControllerIndex {
     static final String ME = "ME";
     static String FRIEND = "FRIEND";
-    static DataInputStream inputStream;
-    static DataOutputStream outputStream;
+    static ObjectInputStream inputStream;
+    static ObjectOutputStream outputStream;
     static Socket s;
     static ServerSocket listener;
-    static HashMap<String, String> contacts = new HashMap<>();
+    static HashMap contacts = new HashMap<>();
     static Gson converter = new Gson();
+    static Boolean encryptionState = false;
+    static PrivateKey privateKey = null;
+    static PublicKey publicKey = null;
     public Button server;
     public Button client;
     public TextField ipaddressField;
     public Button cancelServer;
     public TextField me;
     public TextField friend;
+    public CheckBox encryption;
+    private Task<KeyPair> keypairGenerator = new Task<KeyPair>() {
+        @Override
+        protected KeyPair call() throws Exception {
+            return KeyPairGenerator.getInstance("RSA").genKeyPair();
+        }
+    };
     private String ipAddress;
+    private KeyPair keyPair = null;
     private ListenService listenService = new ListenService();
     private EventHandler<WorkerStateEvent> closeEvent = new EventHandler<WorkerStateEvent>() {
         @Override
@@ -57,6 +73,8 @@ public class ControllerIndex {
 
     @FXML
     public void initialize() {
+        keypairGenerator.setOnSucceeded(event -> keyPair = keypairGenerator.getValue());
+        new Thread(keypairGenerator).start();
         // Handler to switch to next window when connection is established
         listenService.setOnSucceeded(event -> changeScene(me, "Server"));
     }
@@ -69,9 +87,9 @@ public class ControllerIndex {
         */
         Task clientConnector = new Task() {
             @Override
-            protected Void call() throws IOException {
+            protected Void call() throws IOException, ClassNotFoundException {
                 ipAddress = ipaddressField.getText();
-                System.out.println("1 "+ ipAddress);
+                System.out.println("1 " + ipAddress);
                 if (Files.exists(Paths.get("contact.json"))) {
                     FileReader reader = new FileReader("contact.json");
                     contacts = converter.fromJson(reader, HashMap.class);
@@ -87,19 +105,19 @@ public class ControllerIndex {
                     //check if contact contains the friend name
                     else if (!contacts.containsKey(friend.getText().toLowerCase())) {
                         updateMessage("No such name in contact storage.\nPlease provide an ipaddress");
-                        throw  new ContactException();
+                        throw new ContactException();
                     }
                     //Assign friend ipadress if friend name is present.
                     if (contacts.containsKey(friend.getText().toLowerCase())) {
-                        ipAddress = contacts.get(friend.getText().toLowerCase());
+                        ipAddress = (String) contacts.get(friend.getText().toLowerCase());
                     }
                 }
                 s = new Socket(ipAddress, 25000);
-                inputStream = new DataInputStream(s.getInputStream());
-                outputStream = new DataOutputStream(s.getOutputStream());
-                    // Check if friend is not present in contact or (present in contact but ip address is not empty)
-                 if (!contacts.containsKey(friend.getText().toLowerCase()) ||
-                         !ipaddressField.getText().equals("")) {
+                inputStream = new ObjectInputStream(s.getInputStream());
+                outputStream = new ObjectOutputStream(s.getOutputStream());
+                // Check if friend is not present in contact or (present in contact but ip address is not empty)
+                if (!contacts.containsKey(friend.getText().toLowerCase()) ||
+                        !ipaddressField.getText().equals("")) {
                     contacts.put(friend.getText().toLowerCase(), ipaddressField.getText().trim());
                     String jsonMap = converter.toJson(contacts);
                     if (!Files.exists(Paths.get("contact.json")))
@@ -108,7 +126,20 @@ public class ControllerIndex {
                     writer.write(jsonMap);
                     writer.close();
                 }
-
+                //keypairSharing
+                if (encryption.isSelected()) {
+                    privateKey = keyPair.getPrivate();
+                    encryptionState = true;
+                    outputStream.writeObject(Boolean.TRUE);
+                    System.out.println("sent true");
+                    outputStream.writeObject(keyPair.getPublic());
+                    System.out.println("sent public");
+                    publicKey = (PublicKey) inputStream.readObject();
+                    System.out.println("recieved public");
+                } else
+                    {outputStream.writeObject(Boolean.FALSE);
+                    outputStream.flush();
+                    }
                 return null;
             }
         };
@@ -117,25 +148,22 @@ public class ControllerIndex {
                 event -> changeScene((Node) actionEvent.getSource(), "Client"));
 
         //Handler which shows alert according to exception.
-        clientConnector.addEventHandler(WorkerStateEvent.WORKER_STATE_FAILED,event -> {
-            if (clientConnector.getException() instanceof UnknownHostException){
+        clientConnector.addEventHandler(WorkerStateEvent.WORKER_STATE_FAILED, event -> {
+            if (clientConnector.getException() instanceof UnknownHostException) {
                 Alert incorrectIP = new Alert(Alert.AlertType.ERROR);
                 incorrectIP.setTitle("Unable to connect");
                 incorrectIP.setContentText("The IP Address entered is invalid.");
                 incorrectIP.showAndWait();
-            }
-            else if (clientConnector.getException() instanceof ConnectException){
+            } else if (clientConnector.getException() instanceof ConnectException) {
                 Alert incorrectIP = new Alert(Alert.AlertType.ERROR);
                 incorrectIP.setTitle("Unable to connect");
                 incorrectIP.setContentText("Your friend is offline.");
                 incorrectIP.showAndWait();
-            }
-            else {
+            } else {
                 Alert emptyIP = new Alert(Alert.AlertType.WARNING);
                 emptyIP.setTitle("Connection Error");
                 emptyIP.setContentText(clientConnector.getMessage());
                 emptyIP.showAndWait();
-
             }
         });
         new Thread(clientConnector).start();
@@ -184,7 +212,8 @@ public class ControllerIndex {
         protected Task createTask() {
             Task t1 = new Task() {
                 @Override
-                protected Object call() {
+                protected Object call() throws IOException, ClassNotFoundException {
+                    encryption.setDisable(true);
                     try {
                         listener = new ServerSocket(25000);
                     } catch (IOException e) {
@@ -200,10 +229,17 @@ public class ControllerIndex {
                     });
                     try {
                         s = listener.accept();
-                        inputStream = new DataInputStream(s.getInputStream());
-                        outputStream = new DataOutputStream(s.getOutputStream());
+                        outputStream = new ObjectOutputStream(s.getOutputStream());
+                        inputStream = new ObjectInputStream(s.getInputStream());
                     } catch (IOException e) {
                         e.printStackTrace();
+                    }
+                    encryptionState = (Boolean) inputStream.readObject();
+                    if (encryptionState) {
+                        encryptionState = true;
+                        privateKey = keyPair.getPrivate();
+                        publicKey = (PublicKey) inputStream.readObject();
+                        outputStream.writeObject(keyPair.getPublic());
                     }
                     return null;
                 }
@@ -214,5 +250,6 @@ public class ControllerIndex {
         }
     }
 }
-class ContactException extends IOException{
+
+class ContactException extends IOException {
 }

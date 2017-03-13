@@ -6,12 +6,14 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
 public class Main extends Application {
     public static void main(String[] args) {
         launch(args);
     }
-
-    @Override
+        @Override
     public void start(Stage primaryStage) throws Exception {
         Parent root = FXMLLoader.load(getClass().getResource("index.fxml"));
         primaryStage.setTitle("ChatApp");
@@ -26,6 +28,10 @@ public class Main extends Application {
     //To close sockets when close butoon is clicked
     @Override
     public void stop() throws Exception {
+        if (ControllerIndex.encryptionState && ControllerIndex.outputStream != null){
+            byte[] sendBuffer = ControllerChat.encryptCipher.doFinal(Base64.getEncoder().encode(ControllerChat.EXIT.getBytes(StandardCharsets.UTF_8)));
+            ControllerIndex.outputStream.writeObject(sendBuffer);
+        }
         if (ControllerIndex.outputStream != null)
             ControllerIndex.outputStream.close();
         if (ControllerIndex.listener != null)

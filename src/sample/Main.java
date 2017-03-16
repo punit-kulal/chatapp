@@ -28,7 +28,7 @@ public class Main extends Application {
     //To close sockets when close butoon is clicked
     @Override
     public void stop() throws Exception {
-        if (ControllerIndex.encryptionState && ControllerIndex.outputStream != null){
+        if (ControllerIndex.encryptionState && ControllerIndex.s.isConnected()){
             byte[] sendBuffer = ControllerChat.encryptCipher.doFinal(Base64.getEncoder().encode(ControllerChat.EXIT.getBytes(StandardCharsets.UTF_8)));
             ControllerIndex.outputStream.writeObject(sendBuffer);
         }

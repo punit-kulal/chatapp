@@ -6,6 +6,8 @@
     <Button fx:id="closeSession" onAction="#exit" GridPane.columnIndex="0" GridPane.columnSpan="1" GridPane.rowIndex="0"
             GridPane.rowSpan="1">Close Session
     </Button>
+    <Button fx:id="toBeSentFile" onAction="#sendFile" GridPane.columnIndex="10" GridPane.columnSpan="1" GridPane.rowIndex="0"
+            GridPane.rowSpan="1">Send File</Button>
     <TextArea fx:id="chat" GridPane.columnIndex="0" GridPane.columnSpan="10" GridPane.rowIndex="1"
               GridPane.rowSpan="10" editable="false" promptText="Your chat will appear here." minHeight="200" minWidth="200">
     </TextArea>

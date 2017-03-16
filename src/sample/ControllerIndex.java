@@ -89,14 +89,12 @@ public class ControllerIndex {
             @Override
             protected Void call() throws IOException, ClassNotFoundException {
                 ipAddress = ipaddressField.getText();
-                System.out.println("1 " + ipAddress);
                 if (Files.exists(Paths.get("contact.json"))) {
                     FileReader reader = new FileReader("contact.json");
                     contacts = converter.fromJson(reader, HashMap.class);
                 }
                 //Check storage when ipaddress is empty
                 if (ipaddressField.getText().equals("")) {
-                    System.out.println(3);
                     //Check if contacts are empty.
                     if (contacts.isEmpty()) {
                         updateMessage("Contacts is empty.\n Please provide a friend name and valid ipaddress.");
@@ -138,7 +136,6 @@ public class ControllerIndex {
                     System.out.println("recieved public");
                 } else
                     {outputStream.writeObject(Boolean.FALSE);
-                    outputStream.flush();
                     }
                 return null;
             }

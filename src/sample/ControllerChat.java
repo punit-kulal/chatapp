@@ -12,6 +12,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.TextArea;
 import javafx.stage.Stage;
 
@@ -19,6 +20,8 @@ import javax.crypto.*;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -27,6 +30,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static sample.ControllerIndex.*;
@@ -41,7 +45,7 @@ public class ControllerChat {
     static Cipher encryptCipher;
     private static Cipher decryptCipher;
     private final int BLOCK_SIZE = 2048;
-    private final int ENCRYPT_BLOCK_SIZE=64;
+    private final int ENCRYPT_BLOCK_SIZE = 64;
     private final String FILEOVER = "FILE SENT";
     private final String OPFILE = "FILE INCOMING";
     private final String IGNORE = "IGNORE";
@@ -60,6 +64,7 @@ public class ControllerChat {
     private AtomicBoolean confirm = new AtomicBoolean(false);
     private SecretKey sendfilekey;
     private SecretKeySpec recievekey;
+
     @Override
     protected void finalize() throws Throwable {
         super.finalize();
@@ -79,16 +84,21 @@ public class ControllerChat {
             } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException e) {
                 e.printStackTrace();
             }
-        Task<SecretKey> aes = new Task<SecretKey>() {
-            @Override
-            protected SecretKey call() throws Exception {
-                KeyGenerator k = KeyGenerator.getInstance("AES");
-                k.init(128);
-                return k.generateKey();
-            }
-        };
-            aes.addEventHandler(WorkerStateEvent.WORKER_STATE_SUCCEEDED, event -> sendfilekey = aes.getValue());
-        new Thread(aes).start();
+            Task<SecretKey> aes = new Task<SecretKey>() {
+                @Override
+                protected SecretKey call() throws Exception {
+                    KeyGenerator k = KeyGenerator.getInstance("AES");
+                    k.init(128);
+                    System.out.println("ENERATing key");
+                    return k.generateKey();
+                }
+            };
+            aes.addEventHandler(WorkerStateEvent.WORKER_STATE_SUCCEEDED, event ->
+            {
+                System.out.println("key Generated.");
+                sendfilekey = aes.getValue();
+            });
+            new Thread(aes).start();
         }
         //A task which updates friends connection in the contact if not present.
         contactUpdater = new Task<Void>() {
@@ -207,153 +217,118 @@ public class ControllerChat {
     }
 
     public void sendFile(ActionEvent actionEvent) {
-        fileSendingMode = true;
-        System.out.println("set mode true");
-        //Build file selector
-        File file = new File("success.txt");
-        long length = file.length(), current = 0;
-        int size;
-        byte[] encryptBuffer, fileBuffer = new byte[BLOCK_SIZE];
-        try {
-            if (!file.canRead()) {
-                Alert cannotRead = new Alert(Alert.AlertType.ERROR);
-                cannotRead.setHeaderText("Error in sending file.");
-                cannotRead.setContentText("You don't have permission to read the file.");
-                cannotRead.show();
-                fileSendingMode = false;
-                return;
-            } else {
-                //Ready to send..
-//                inputReader.cancel();
-//                inputReader.reset();
-                if (encryptionState)
-                    outputStream.writeObject(encrypt(OPFILE.getBytes(StandardCharsets.UTF_8)));
-                else
-                    outputStream.writeObject(OPFILE);
-                outputStream.writeObject(file.getName());
-                System.out.println("about to enter loop");
-                while (!gotConfirmation.get()) {
-                    ;
-                }
-                System.out.println("passed confirmation area");
-                //checking whether ready to recieve in input service.
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        //client ready to recieve.?
-        System.out.println(confirm.get());
-        if (confirm.get()) {
-            try {
-                fileSendingMode = false;
-                confirm.set(false);
-                System.out.println("Sender entered in confirm loop");
-                outputStream.writeObject(length);
-                outputStream.writeObject(encrypt(sendfilekey.getEncoded()));
-                Cipher fileEncrypt = Cipher.getInstance("AES/CBC/PKCS5Padding");
-                byte[] iv = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-                IvParameterSpec ivspec = new IvParameterSpec(iv);
-                fileEncrypt.init(Cipher.ENCRYPT_MODE,sendfilekey,ivspec);
-                FileInputStream fis = new FileInputStream(file);
-                BufferedInputStream fileReader = new BufferedInputStream(fis);
-                while (current < length) {
-                    System.out.println("in loop");
-                    if (length - current < BLOCK_SIZE) {
-                        fileBuffer = new byte[(int) (length - current)];
-                        fileReader.read(fileBuffer, 0, (int) (length - current));
-                        current = length;
-                    } else {
-                        fileReader.read(fileBuffer, 0, fileBuffer.length);
-                        current += fileBuffer.length;
-                    }
-                    if (encryptionState) {
-                        outputStream.writeObject(fileEncrypt.doFinal(fileBuffer));
-                    } else
-                        outputStream.writeObject(fileBuffer);
-                }
-                fileReader.close();
-                fis.close();
-                System.out.println("File sent");
-                //inputReader.start();
-            } catch (IOException | NoSuchPaddingException | InvalidKeyException | NoSuchAlgorithmException | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
-                e.printStackTrace();
-            }
-        } else {
-            Alert recieverError = new Alert(Alert.AlertType.ERROR);
-            recieverError.setHeaderText("Unable to send file.");
-            recieverError.setContentText("Something went wrong on the reciever side.");
-            recieverError.show();
-        }
-
+        SendFileService sender = new SendFileService(encryptionState);
+        sender.start();
     }
 
     //Executes in bg thread.
     private void recieveFile() {
-        long length, current = 0;
+        if (encryptionState) {
+            recieveEncryptedFile();
+        } else {
+            AtomicBoolean resultValue = new AtomicBoolean(true);
+            File recieveFile = null;
+            System.out.println("Recieveing file");
+            try {
+                String fileName = (String) inputStream.readObject();
+                recieveFile = new File("testing.txt");
+                if (!recieveFile.createNewFile()) {
+                    AtomicBoolean inputConfirmation = new AtomicBoolean(false);
+                    Platform.runLater(() ->
+                            buildOverwriteConfirmation(inputConfirmation, resultValue)
+                    );
+                    while (!inputConfirmation.get())
+                        ;
+                }
+                //Replace filename after validation
+                if (!recieveFile.canWrite()) {
+                    //Alert recievefile cannot write
+                    System.out.println("No permission");
+                    outputStream.writeObject(IGNORE);
+                    outputStream.writeObject(Boolean.FALSE);
+                    Platform.runLater(() -> alertBuilder(Alert.AlertType.ERROR, "Error in recieving file.",
+                            "You don't have permission to write in this directory."));
+                    return ;
+                } else if (!resultValue.get()) {
+                    outputStream.writeObject(IGNORE);
+                    outputStream.writeObject(Boolean.FALSE);
+                    return;
+                } else {//Give confirmation
+                    File finalRecieveFile = recieveFile;
+                    Platform.runLater(() -> {
+                        RecieveFileService recieveFileService = new RecieveFileService(finalRecieveFile);
+                        recieveFileService.start();
+                    });
+                }
+            } catch (IOException | ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void buildOverwriteConfirmation(AtomicBoolean inputConfirmation, AtomicBoolean resultValue) {
+        Alert confirmation = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmation.setHeaderText("File already Exists");
+        confirmation.setContentText("Do you want to overwrite the existing file.");
+        ButtonType buttonTypeYes = new ButtonType("Yes");
+        ButtonType buttonTypeNo = new ButtonType("No");
+        confirmation.getButtonTypes().setAll(buttonTypeYes, buttonTypeNo);
+        Optional<ButtonType> result = confirmation.showAndWait();
+        result.ifPresent(buttonType -> {
+            if (buttonType == buttonTypeYes)
+                resultValue.set(true);
+            else
+                resultValue.set(false);
+        });
+        if(!result.isPresent())
+            resultValue.set(false);
+        inputConfirmation.set(true);
+    }
+
+    private void recieveEncryptedFile() {
         File recieveFile = null;
         System.out.println("Recieveing file");
+        AtomicBoolean resultValue = new AtomicBoolean(true);
         try {
-            String fileName = (String) inputStream.readObject();
+            String fileName = getDecryptedString((byte[]) inputStream.readObject());
             //Replace filename after validation
             recieveFile = new File("testing.txt");
-            recieveFile.createNewFile();
+            if (!recieveFile.createNewFile()) {
+                AtomicBoolean inputConfirm = new AtomicBoolean(false);
+                Platform.runLater(() -> buildOverwriteConfirmation(inputConfirm, resultValue));
+                while (!inputConfirm.get())
+                    ;
+            }
             if (!recieveFile.canWrite()) {
                 //Alert recievefile cannot write
                 System.out.println("No permission");
-                if (encryptionState) {
-                    outputStream.writeObject(encrypt(IGNORE.getBytes(StandardCharsets.UTF_8)));
-                } else
-                    outputStream.writeObject(IGNORE);
+                outputStream.writeObject(encrypt(IGNORE));
                 outputStream.writeObject(Boolean.FALSE);
-                Platform.runLater(() -> {
-                    Alert cannotWrite = new Alert(Alert.AlertType.ERROR);
-                    cannotWrite.setHeaderText("Error in recieving file.");
-                    cannotWrite.setContentText("You don't have permission to write in this directory.");
-                    cannotWrite.show();
-                });
+                Platform.runLater(() -> alertBuilder(Alert.AlertType.ERROR, "Error in recieving file.",
+                        "You don't have permission to write in this directory."));
                 return;
-            } else {//Give confirmation
-                System.out.println("seding confirmaton");
-                if (encryptionState)
-                    outputStream.writeObject(encrypt(IGNORE.getBytes(StandardCharsets.UTF_8)));
-                else
-                    outputStream.writeObject(IGNORE);
-                outputStream.writeObject(Boolean.TRUE);
-                System.out.println("Confirmaton sent.");
+            } else if (!resultValue.get()){
+                outputStream.writeObject(encrypt(IGNORE));
+                outputStream.writeObject(Boolean.FALSE);
+                return;
+            }
+                else {//Give confirmation
+                File finalRecieveFile = recieveFile;
+                Platform.runLater(() -> {
+                    RecieveFileService recieveFileService = new RecieveFileService(finalRecieveFile);
+                    recieveFileService.start();
+                });
             }
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
-        try {
-            length = (long) inputStream.readObject();
-            byte[] decrypt_key = decrypt((byte[]) inputStream.readObject());
-            byte[] iv = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-            IvParameterSpec ivspec = new IvParameterSpec(iv);
-            assert decrypt_key != null;
-            recievekey = new SecretKeySpec(decrypt_key,"AES");
-            Cipher fileDecrypt = Cipher.getInstance("AES/CBC/PKCS5Padding");
-            fileDecrypt.init(Cipher.DECRYPT_MODE,recievekey,ivspec);
-            assert recieveFile != null;
-            FileOutputStream writer = new FileOutputStream(recieveFile);
-            BufferedOutputStream bos = new BufferedOutputStream(writer);
-            byte[] fileBuffer;
-            while (current < length) {
-                System.out.println("in recieve loop");
-                if (encryptionState) {
-                    fileBuffer = fileDecrypt.doFinal((byte[]) inputStream.readObject());
-                }
-                else
-                    fileBuffer = (byte[]) inputStream.readObject();
-                bos.write(fileBuffer);
-                current += fileBuffer.length;
-            }
-            bos.write("recieved".getBytes());
-            bos.close();
-            writer.close();
-            System.out.println("file recieved");
-        } catch (IOException | ClassNotFoundException | NoSuchPaddingException | InvalidKeyException | NoSuchAlgorithmException | BadPaddingException | InvalidAlgorithmParameterException | IllegalBlockSizeException e) {
-            e.printStackTrace();
-        }
+    }
+
+    private String getDecryptedString(byte[] encryptBytes) {
+        if (encryptBytes!=null)
+        return new String(decrypt(encryptBytes), StandardCharsets.UTF_8);
+        else
+            throw new NullPointerException();
     }
 
     //Create encrypt and decrypt method to ease Complexity
@@ -366,16 +341,26 @@ public class ControllerChat {
         return null;
     }
 
+    private byte[] encrypt(String simpleString) {
+        return encrypt(simpleString.getBytes(StandardCharsets.UTF_8));
+    }
+
     private byte[] decrypt(byte[] encryptBytes) {
         try {
             return decryptCipher.doFinal(decoder.decode(encryptBytes));
-        } catch (IllegalBlockSizeException e) {
-            e.printStackTrace();
-        } catch (BadPaddingException e) {
+        } catch (IllegalBlockSizeException | BadPaddingException e) {
             e.printStackTrace();
         }
         return null;
     }
+
+    private void alertBuilder(Alert.AlertType alertType, String headerText, String contentText) {
+        Alert alert = new Alert(alertType);
+        alert.setHeaderText(headerText);
+        alert.setContentText(contentText);
+        alert.show();
+    }
+
 
     class InputStreamService extends Service {
         @Override
@@ -393,7 +378,7 @@ public class ControllerChat {
                         }
                         if (encryptionState) {
                             input1 = (byte[]) inputStream.readObject();
-                            msg = new String(decrypt(input1), StandardCharsets.UTF_8);
+                            msg = getDecryptedString(input1);
                         } else {
                             msg = (String) inputStream.readObject();
                         }
@@ -410,4 +395,305 @@ public class ControllerChat {
             };
         }
     }
+
+    class SendFileService extends Service {
+        boolean encrypted;
+
+        SendFileService(boolean encrypted) {
+            this.encrypted = encrypted;
+        }
+
+        void sendUnencryptedFile() {
+            fileSendingMode = true;
+            System.out.println("set mode true");
+            Socket fileSenderSocket = null;
+            ObjectOutputStream fileOuputStream = null;
+            FileInputStream fis = null;
+            BufferedInputStream fileReader = null;
+            //Build file selector
+            File file = new File("success.txt");
+            long length = file.length(), current = 0;
+            int size;
+            byte[] fileBuffer = new byte[BLOCK_SIZE];
+            try {
+                if (!file.canRead()) {
+                    Platform.runLater(() -> alertBuilder(Alert.AlertType.ERROR, "Error in sending file.",
+                            "You don't have permission to read the file."));
+                    fileSendingMode = false;
+                    return;
+                } else {
+                    outputStream.writeObject(OPFILE);
+                    outputStream.writeObject(file.getName());
+                    System.out.println("about to enter loop");
+                    while (!gotConfirmation.get())
+                        ;
+                    System.out.println("passed confirmation area");
+                    //checking whether ready to recieve in input service.
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            //client ready to recieve.?
+            System.out.println(confirm.get());
+            if (confirm.get()) {
+                try {
+                    fileSendingMode = false;
+                    confirm.set(false);
+                    System.out.println("Sender entered in confirm loop");
+                    System.out.println("Trying to connect");
+                    fileSenderSocket = new Socket(s.getInetAddress().getHostAddress(), 25100);
+                    System.out.println("Conneted successfully");
+                    fileOuputStream = new ObjectOutputStream(fileSenderSocket.getOutputStream());
+                    fileOuputStream.writeObject(length);
+                    fis = new FileInputStream(file);
+                    fileReader = new BufferedInputStream(fis);
+                    while (current < length) {
+                        System.out.println("in loop");
+                        if (length - current < BLOCK_SIZE) {
+                            fileBuffer = new byte[(int) (length - current)];
+                            fileReader.read(fileBuffer, 0, (int) (length - current));
+                            current = length;
+                        } else {
+                            fileReader.read(fileBuffer, 0, fileBuffer.length);
+                            current += fileBuffer.length;
+                        }
+                        fileOuputStream.writeObject(fileBuffer);
+                    }
+                    System.out.println("File sent");
+                    //inputReader.start();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } finally {
+                    try {
+                        assert fileOuputStream != null;
+                        fileOuputStream.close();
+                        assert fileSenderSocket != null;
+                        fileSenderSocket.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                }
+            } else {
+                Platform.runLater(() -> alertBuilder(Alert.AlertType.ERROR, "Unable to send file.",
+                        "Something went wrong on the reciever side."));
+            }
+        }
+
+        private void sendEncryptedFile() {
+            fileSendingMode = true;
+            Socket fileSenderSocket = null;
+            ObjectOutputStream fileOuputStream = null;
+            FileInputStream fis = null;
+            BufferedInputStream fileReader = null;
+            Cipher fileEncrypt = null;
+            //Build file selector
+            File file = new File("success.txt");
+            long length = file.length(), current = 0;
+            int size;
+            byte[] fileBuffer = new byte[BLOCK_SIZE];
+            try {
+                if (!file.canRead()) {
+                    Platform.runLater(() -> alertBuilder(Alert.AlertType.ERROR, "Error in sending file.",
+                            "You don't have permission to read the file."));
+                    fileSendingMode = false;
+                    return;
+                } else {
+                    outputStream.writeObject(encrypt(OPFILE));
+                    outputStream.writeObject(encrypt(file.getName()));
+                    System.out.println("about to enter loop");
+                    while (!gotConfirmation.get())
+                        ;
+                    System.out.println("passed confirmation area");
+                    //checking whether ready to recieve in input service.
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            //client ready to recieve.?
+            System.out.println(confirm.get());
+            if (confirm.get()) {
+                try {
+                    fileSendingMode = false;
+                    confirm.set(false);
+                    System.out.println("Sender entered in confirm loop");
+                    System.out.println("Trying to connect");
+                    fileSenderSocket = new Socket(s.getInetAddress().getHostAddress(), 25100);
+                    System.out.println("Conneted successfully");
+                    fileOuputStream = new ObjectOutputStream(fileSenderSocket.getOutputStream());
+                    fileOuputStream.writeObject(length);
+                    fileOuputStream.writeObject(encrypt(sendfilekey.getEncoded()));
+                    fileEncrypt = Cipher.getInstance("AES/CBC/PKCS5Padding");
+                    byte[] iv = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+                    IvParameterSpec ivspec = new IvParameterSpec(iv);
+                    fileEncrypt.init(Cipher.ENCRYPT_MODE, sendfilekey, ivspec);
+                    fis = new FileInputStream(file);
+                    fileReader = new BufferedInputStream(fis);
+                    while (current < length) {
+                        System.out.println("in loop");
+                        if (length - current < BLOCK_SIZE) {
+                            fileBuffer = new byte[(int) (length - current)];
+                            fileReader.read(fileBuffer, 0, (int) (length - current));
+                            current = length;
+                        } else {
+                            fileReader.read(fileBuffer, 0, fileBuffer.length);
+                            current += fileBuffer.length;
+                        }
+                        fileOuputStream.writeObject(fileEncrypt.doFinal(fileBuffer));
+
+                    }
+                    System.out.println("File sent");
+                    fileReader.close();
+                    fis.close();
+                    //inputReader.start();
+                } catch (IOException | NoSuchPaddingException | InvalidKeyException | NoSuchAlgorithmException | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
+                    e.printStackTrace();
+                } finally {
+                    try {
+                        if (fileOuputStream != null) {
+                            fileOuputStream.close();
+                        }
+                        if (fileSenderSocket != null) {
+                            fileSenderSocket.close();
+                        }
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                }
+            } else {
+                Platform.runLater(() -> alertBuilder(Alert.AlertType.ERROR, "Unable to send file.",
+                        "Something went wrong on the reciever side."));
+            }
+        }
+
+        @Override
+        protected Task createTask() {
+            return new Task() {
+                @Override
+                protected Object call() throws Exception {
+                    System.out.println("service started.");
+                    if (encrypted)
+                        sendEncryptedFile();
+                    else
+                        sendUnencryptedFile();
+                    return null;
+                }
+            };
+        }
+    }
+
+
+    class RecieveFileService extends Service {
+        File recieveFile;
+
+        RecieveFileService(File recieveFile) {
+            this.recieveFile = recieveFile;
+        }
+
+        @Override
+        protected Task createTask() {
+            return new Task() {
+                @Override
+                protected Object call() throws Exception {
+                    long length = 0, current = 0;
+                    ServerSocket fileRecieveServer = null;
+                    Socket fileRecieveSocket = null;
+                    ObjectInputStream fileInputStream = null;
+                    if (encryptionState) {
+                        Cipher fileDecrypt;
+                        byte[] iv = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+                        IvParameterSpec ivspec = new IvParameterSpec(iv);
+                        try {
+                            outputStream.writeObject(encrypt(IGNORE));
+                            fileRecieveServer = new ServerSocket(25100);
+                            outputStream.writeObject(Boolean.TRUE);
+                            System.out.println("Confirmaton sent.");
+                            fileRecieveSocket = fileRecieveServer.accept();
+                            System.out.println("Connection accepted");
+                            fileInputStream = new ObjectInputStream(fileRecieveSocket.getInputStream());
+                            length = (long) fileInputStream.readObject();
+                            byte[] decrypt_key = decrypt((byte[]) fileInputStream.readObject());
+                            assert decrypt_key != null;
+                            recievekey = new SecretKeySpec(decrypt_key, "AES");
+                            fileDecrypt = Cipher.getInstance("AES/CBC/PKCS5Padding");
+                            fileDecrypt.init(Cipher.DECRYPT_MODE, recievekey, ivspec);
+                            assert recieveFile != null;
+                            FileOutputStream writer = new FileOutputStream(recieveFile);
+                            BufferedOutputStream bos = new BufferedOutputStream(writer);
+                            byte[] fileBuffer;
+                            while (current < length) {
+                                System.out.println("in recieve loop");
+                                fileBuffer = fileDecrypt.doFinal((byte[]) fileInputStream.readObject());
+                                bos.write(fileBuffer);
+                                current += fileBuffer.length;
+                            }
+                            bos.write("recieved".getBytes());
+                            bos.flush();
+                            bos.close();
+                            writer.close();
+                            System.out.println("file recieved");
+                        } catch (IOException | ClassNotFoundException | NoSuchPaddingException | InvalidKeyException | NoSuchAlgorithmException | BadPaddingException | InvalidAlgorithmParameterException | IllegalBlockSizeException e) {
+                            e.printStackTrace();
+                        } finally {
+                            try {
+                                if (fileRecieveSocket != null) {
+                                    fileRecieveSocket.close();
+                                }
+                                if (fileInputStream != null) {
+                                    fileInputStream.close();
+                                }
+                                if (fileRecieveServer != null) {
+                                    fileRecieveServer.close();
+                                }
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    } else {
+                        outputStream.writeObject(IGNORE);
+                        fileRecieveServer = new ServerSocket(25100);
+                        outputStream.writeObject(Boolean.TRUE);
+                        System.out.println("Confirmaton sent.");
+                        try {
+                            fileRecieveSocket = fileRecieveServer.accept();
+                            System.out.println("Connection accepted");
+                            fileInputStream = new ObjectInputStream(fileRecieveSocket.getInputStream());
+                            length = (long) fileInputStream.readObject();
+                            assert recieveFile != null;
+                            FileOutputStream writer = new FileOutputStream(recieveFile);
+                            BufferedOutputStream bos = new BufferedOutputStream(writer);
+                            byte[] fileBuffer;
+                            while (current < length) {
+                                System.out.println("in recieve loop");
+                                fileBuffer = (byte[]) fileInputStream.readObject();
+                                bos.write(fileBuffer);
+                                current += fileBuffer.length;
+                            }
+                            bos.write("recieved".getBytes());
+                            bos.close();
+                            writer.close();
+                            System.out.println("file recieved");
+                        } catch (IOException | ClassNotFoundException e) {
+                            e.printStackTrace();
+                        } finally {
+                            try {
+                                fileRecieveServer.close();
+                                if (fileRecieveSocket != null) {
+                                    fileRecieveSocket.close();
+                                }
+                                if (fileInputStream != null) {
+                                    fileInputStream.close();
+                                }
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                    return null;
+                }
+            };
+        }
+    }
 }
+

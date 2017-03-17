@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
+import static sample.Constant.*;
+
 public class Main extends Application {
     public static void main(String[] args) {
         launch(args);
@@ -31,17 +33,17 @@ public class Main extends Application {
     //To close sockets when close butoon is clicked
     @Override
     public void stop() {
-        if (ControllerIndex.encryptionState && ControllerIndex.s.isConnected()){
+        if (encryptionState && s.isConnected()){
             byte[] sendBuffer;
             try {
-                sendBuffer = ControllerChat.encryptCipher.doFinal(Base64.getEncoder().encode(ControllerChat.EXIT.getBytes(StandardCharsets.UTF_8)));
-                ControllerIndex.outputStream.writeObject(sendBuffer);
-                if (ControllerIndex.outputStream != null)
-                    ControllerIndex.outputStream.close();
-                if (ControllerIndex.listener != null)
-                    ControllerIndex.listener.close();
-                if (ControllerIndex.s != null)
-                    ControllerIndex.s.close();
+                sendBuffer = encryptCipher.doFinal(Base64.getEncoder().encode(EXIT.getBytes(StandardCharsets.UTF_8)));
+                outputStream.writeObject(sendBuffer);
+                if (outputStream != null)
+                    outputStream.close();
+                if (listener != null)
+                    listener.close();
+                if (s != null)
+                    s.close();
             } catch (IllegalBlockSizeException | BadPaddingException e) {
                 e.printStackTrace();
             } catch (IOException e) {

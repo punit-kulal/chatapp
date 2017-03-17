@@ -1,6 +1,5 @@
 package sample;
 
-import com.google.gson.Gson;
 import javafx.application.Platform;
 import javafx.concurrent.Service;
 import javafx.concurrent.Task;
@@ -27,22 +26,14 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.HashMap;
 
+import static sample.Constant.*;
+
 public class ControllerIndex {
-    static final String ME = "ME";
-    static String FRIEND = "FRIEND";
-    static ObjectInputStream inputStream;
-    static ObjectOutputStream outputStream;
-    static Socket s;
-    static ServerSocket listener;
-    static HashMap contacts = new HashMap<>();
-    static Gson converter = new Gson();
-    static Boolean encryptionState = false;
-    static PrivateKey privateKey = null;
-    static PublicKey publicKey = null;
+
+
     public Button server;
     public Button client;
     public TextField ipaddressField;

@@ -46,6 +46,7 @@ public class ControllerChat {
     public TextField toBeSentFile;
     public ProgressBar fileLoad;
     public Button cancelSendning;
+    public Button saveChat;
     private Cipher decryptCipher;
     private InputStreamService inputReader;
     private String ME;
@@ -58,6 +59,8 @@ public class ControllerChat {
     private SecretKey sendfilekey;
     private SecretKeySpec recievekey;
     private SendFileService sender;
+    private RecieveFileService recieveFileService;
+
     @Override
     protected void finalize() throws Throwable {
         super.finalize();
@@ -223,14 +226,7 @@ public class ControllerChat {
             try {
                 String fileName = (String) inputStream.readObject();
                 recieveFile = new File(fileName);
-                if (!recieveFile.createNewFile()) {
-                    AtomicBoolean inputConfirmation = new AtomicBoolean(false);
-                    Platform.runLater(() ->
-                            buildOverwriteConfirmation(inputConfirmation, resultValue)
-                    );
-                    while (!inputConfirmation.get())
-                        System.out.println("in waiting object loop.");
-                }
+                checkForOverwrite(recieveFile, resultValue);
                 //Replace filename after validation
                 if (!recieveFile.canWrite()) {
                     //Alert recievefile cannot write
@@ -247,13 +243,24 @@ public class ControllerChat {
                 } else {//Give confirmation
                     File finalRecieveFile = recieveFile;
                     Platform.runLater(() -> {
-                        RecieveFileService recieveFileService = new RecieveFileService(finalRecieveFile);
+                        recieveFileService = new RecieveFileService(finalRecieveFile);
                         recieveFileService.start();
                     });
                 }
             } catch (IOException | ClassNotFoundException e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    private void checkForOverwrite(File recieveFile, AtomicBoolean resultValue) throws IOException {
+        if (!recieveFile.createNewFile()) {
+            AtomicBoolean inputConfirmation = new AtomicBoolean(false);
+            Platform.runLater(() ->
+                    buildOverwriteConfirmation(inputConfirmation, resultValue)
+            );
+            while (!inputConfirmation.get())
+                ;
         }
     }
 
@@ -265,12 +272,7 @@ public class ControllerChat {
             String fileName = getDecryptedString((byte[]) inputStream.readObject());
             //Replace filename after validation
             recieveFile = new File(fileName);
-            if (!recieveFile.createNewFile()) {
-                AtomicBoolean inputConfirm = new AtomicBoolean(false);
-                Platform.runLater(() -> buildOverwriteConfirmation(inputConfirm, resultValue));
-                while (!inputConfirm.get())
-                    System.out.println("in waiting object loop.");
-            }
+            checkForOverwrite(recieveFile, resultValue);
             if (!recieveFile.canWrite()) {
                 //Alert recievefile cannot write
                 System.out.println("No permission");
@@ -286,7 +288,7 @@ public class ControllerChat {
             } else {//Give confirmation
                 File finalRecieveFile = recieveFile;
                 Platform.runLater(() -> {
-                    RecieveFileService recieveFileService = new RecieveFileService(finalRecieveFile);
+                    recieveFileService = new RecieveFileService(finalRecieveFile);
                     recieveFileService.start();
                 });
             }
@@ -359,9 +361,8 @@ public class ControllerChat {
             toBeSentFile.setText(toSend.getName());
     }
 
-    private void updateProgressBar(double current,double length, boolean progressBarPresent) {
+    private void updateProgressBar(double current, double length, boolean progressBarPresent) {
         if (progressBarPresent) {
-            System.out.println("sending "+ current/length +" % complete");
             Platform.runLater(() -> fileLoad.setProgress((current / length)));
         }
     }
@@ -383,7 +384,47 @@ public class ControllerChat {
     }
 
     public void cancelSend(ActionEvent actionEvent) {
-        sender.cancel();
+        if (sender != null && sender.isRunning()) {
+            System.out.println("Sender Cancelling");
+            sender.cancel();
+            sender.reset();
+        }
+        if (recieveFileService != null && recieveFileService.isRunning()) {
+            System.out.println("Receiver Cancelling");
+            recieveFileService.cancel();
+            recieveFileService.reset();
+        }
+    }
+
+    public void saveChat(ActionEvent actionEvent) {
+        FileChooser savetxt = new FileChooser();
+        savetxt.getExtensionFilters()
+                .add(new FileChooser.ExtensionFilter("Text Files", "*.txt"));
+        savetxt.setTitle("Click location to save file");
+        File fileToBeSaved = savetxt.showSaveDialog(new Stage());
+        String data = chat.getText();
+        if (fileToBeSaved != null) {
+            FileSaveTask task = new FileSaveTask(fileToBeSaved, data);
+            task.setOnSucceeded(event -> alertBuilder(Alert.AlertType.INFORMATION, "Success!", "File saved Successfully as " + fileToBeSaved.getName()));
+            new Thread(task).start();
+        }
+    }
+
+    //Also resets important parameter.
+    private void closeProgressBar(boolean progressBarPresent) {
+        if (progressBarPresent) {
+            Platform.runLater(() -> {
+                fileLoad.setProgress(0);
+                fileLoad.setVisible(false);
+                cancelSendning.setVisible(false);
+            });
+        }
+        reset();
+    }
+
+    private void reset() {
+        gotConfirmation.set(false);
+        fileSendingMode = false;
     }
 
     class InputStreamService extends Service {
@@ -433,11 +474,6 @@ public class ControllerChat {
         private void sendUnencryptedFile(Task task) {
             fileSendingMode = true;
             System.out.println("set mode true");
-            Socket fileSenderSocket = null;
-            ObjectOutputStream fileOuputStream = null;
-            FileInputStream fis = null;
-            BufferedInputStream fileReader = null;
-            //Build file selector
             File file = toSend;
             long length = file.length(), current = 0;
             int size;
@@ -461,24 +497,21 @@ public class ControllerChat {
                 e.printStackTrace();
             }
             //client ready to recieve.?
-            System.out.println(confirm.get());
             if (confirm.get()) {
-                try {
+                boolean progressBarPresent = false;
+                //Sending Block try with resources statement
+                try (Socket fileSenderSocket = new Socket(s.getInetAddress().getHostAddress(), 25100);
+                     ObjectOutputStream fileSendStream = new ObjectOutputStream(fileSenderSocket.getOutputStream());
+                     FileInputStream fis = new FileInputStream(file);
+                     BufferedInputStream fileReader = new BufferedInputStream(fis);
+                     ObjectInputStream objectInputStream = new ObjectInputStream(fileSenderSocket.getInputStream())) {
                     fileSendingMode = false;
                     confirm.set(false);
-                    System.out.println("Sender entered in confirm loop");
-                    System.out.println("Trying to connect");
-                    fileSenderSocket = new Socket(s.getInetAddress().getHostAddress(), 25100);
-                    System.out.println("Conneted successfully");
-                    fileOuputStream = new ObjectOutputStream(fileSenderSocket.getOutputStream());
-                    fileOuputStream.writeObject(length);
-                    boolean progressBarPresent=setProgressBar(length);
-                    System.out.println("Progress Bar :"+progressBarPresent);
-                    System.out.println("set up progressbar");
-                    fis = new FileInputStream(file);
-                    fileReader = new BufferedInputStream(fis);
+                    RecieverFeedbackRecieveTask t = new RecieverFeedbackRecieveTask(objectInputStream);
+                    new Thread(t).start();
+                    progressBarPresent = setProgressBar(length);
+                    fileSendStream.writeObject(length);
                     while (current < length && !task.isCancelled()) {
-                        System.out.println("in loop");
                         if (length - current < BLOCK_SIZE) {
                             fileBuffer = new byte[(int) (length - current)];
                             fileReader.read(fileBuffer, 0, (int) (length - current));
@@ -487,25 +520,22 @@ public class ControllerChat {
                             fileReader.read(fileBuffer, 0, fileBuffer.length);
                             current += fileBuffer.length;
                         }
-                        fileOuputStream.writeObject(fileBuffer);
+                        fileSendStream.writeObject(fileBuffer);
                         updateProgressBar(current, length, progressBarPresent);
                     }
                     closeProgressBar(progressBarPresent);
-                    updateFileInformationInChatBox("File Sent: ", file);
+                    if (!task.isCancelled())
+                        updateFileInformationInChatBox("File Sent ", file);
                     toSend = null;
                     Platform.runLater(() -> toBeSentFile.setText(""));
                 } catch (IOException e) {
                     e.printStackTrace();
-                } finally {
-                    try {
-                        assert fileOuputStream != null;
-                        fileOuputStream.close();
-                        assert fileSenderSocket != null;
-                        fileSenderSocket.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                    //If task cancelled by current user dont show error.
+                    if (!task.isCancelled()) {
+                        Platform.runLater(() -> alertBuilder(Alert.AlertType.ERROR, "Sending failed",
+                                FRIEND + " has cancelled recieving the file."));
                     }
-
+                    closeProgressBar(progressBarPresent);
                 }
             } else {
                 Platform.runLater(() -> alertBuilder(Alert.AlertType.ERROR, "Unable to send file.",
@@ -515,10 +545,6 @@ public class ControllerChat {
 
         private void sendEncryptedFile(Task task) {
             fileSendingMode = true;
-            Socket fileSenderSocket = null;
-            ObjectOutputStream fileOuputStream = null;
-            FileInputStream fis = null;
-            BufferedInputStream fileReader = null;
             Cipher fileEncrypt = null;
             //Build file selector
             File file = toSend;
@@ -546,25 +572,27 @@ public class ControllerChat {
             //client ready to recieve.?
             System.out.println(confirm.get());
             if (confirm.get()) {
-                try {
+                boolean progressBarPresent = false;
+                try (Socket fileSenderSocket = new Socket(s.getInetAddress().getHostAddress(), 25100);
+                     ObjectOutputStream fileOuputStream = new ObjectOutputStream(fileSenderSocket.getOutputStream());
+                     FileInputStream fis = new FileInputStream(file);
+                     BufferedInputStream fileReader = new BufferedInputStream(fis);
+                     ObjectInputStream objectInputStream = new ObjectInputStream(fileSenderSocket.getInputStream())) {
                     fileSendingMode = false;
                     confirm.set(false);
+                    RecieverFeedbackRecieveTask t = new RecieverFeedbackRecieveTask(objectInputStream);
+                    new Thread(t).start();
                     System.out.println("Sender entered in confirm loop");
                     System.out.println("Trying to connect");
-                    fileSenderSocket = new Socket(s.getInetAddress().getHostAddress(), 25100);
                     System.out.println("Conneted successfully");
-                    boolean progressBarPresent=setProgressBar(length);
-                    fileOuputStream = new ObjectOutputStream(fileSenderSocket.getOutputStream());
+                    progressBarPresent = setProgressBar(length);
                     fileOuputStream.writeObject(length);
                     fileOuputStream.writeObject(encrypt(sendfilekey.getEncoded()));
                     fileEncrypt = Cipher.getInstance("AES/CBC/PKCS5Padding");
                     byte[] iv = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
                     IvParameterSpec ivspec = new IvParameterSpec(iv);
                     fileEncrypt.init(Cipher.ENCRYPT_MODE, sendfilekey, ivspec);
-                    fis = new FileInputStream(file);
-                    fileReader = new BufferedInputStream(fis);
                     while (current < length && !task.isCancelled()) {
-                        System.out.println("in loop");
                         if (length - current < BLOCK_SIZE) {
                             fileBuffer = new byte[(int) (length - current)];
                             fileReader.read(fileBuffer, 0, (int) (length - current));
@@ -576,31 +604,24 @@ public class ControllerChat {
                         fileOuputStream.writeObject(fileEncrypt.doFinal(fileBuffer));
                         if (length > 1024 * 1024 * 2) {
                             long finalCurrent = current;
-                            updateProgressBar(current,length, progressBarPresent);
+                            updateProgressBar(current, length, progressBarPresent);
                         }
                     }
                     closeProgressBar(progressBarPresent);
                     long finalLength = length;
-                    updateFileInformationInChatBox("File Sent ", file);
+                    if (!task.isCancelled())
+                        updateFileInformationInChatBox("File Sent ", file);
                     toSend = null;
                     Platform.runLater(() -> toBeSentFile.setText(""));
-                    fileReader.close();
-                    fis.close();
-                    //inputReader.start();
-                } catch (IOException | NoSuchPaddingException | InvalidKeyException | NoSuchAlgorithmException | InvalidAlgorithmParameterException | BadPaddingException | IllegalBlockSizeException e) {
+                } catch (IOException e) {
                     e.printStackTrace();
-                } finally {
-                    try {
-                        if (fileOuputStream != null) {
-                            fileOuputStream.close();
-                        }
-                        if (fileSenderSocket != null) {
-                            fileSenderSocket.close();
-                        }
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                    if (!task.isCancelled()) {
+                        Platform.runLater(() -> Platform.runLater(() -> alertBuilder(Alert.AlertType.ERROR, "Sending failed",
+                                FRIEND + " has cancelled recieving the file.")));
                     }
-
+                    closeProgressBar(progressBarPresent);
+                } catch (NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException e) {
+                    e.printStackTrace();
                 }
             } else {
                 Platform.runLater(() -> alertBuilder(Alert.AlertType.ERROR, "Unable to send file.",
@@ -639,131 +660,169 @@ public class ControllerChat {
         protected Task createTask() {
             return new Task() {
                 long length = 0, current = 0;
-                ServerSocket fileRecieveServer = null;
-                Socket fileRecieveSocket = null;
-                ObjectInputStream fileInputStream = null;
-                FileOutputStream writer = null;
-                BufferedOutputStream bos = null;
+
                 @Override
                 protected Object call() throws Exception {
-
+                    boolean progressBarPresent = false;
+                    SenderCancelledCheckerTask s = null;
                     if (encryptionState) {
                         Cipher fileDecrypt;
                         byte[] iv = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
                         IvParameterSpec ivspec = new IvParameterSpec(iv);
-                        try {
-                            outputStream.writeObject(encrypt(IGNORE));
-                            fileRecieveServer = new ServerSocket(25100);
-                            outputStream.writeObject(Boolean.TRUE);
-                            System.out.println("Confirmaton sent.");
-                            fileRecieveSocket = fileRecieveServer.accept();
-                            System.out.println("Connection accepted");
-                            fileInputStream = new ObjectInputStream(fileRecieveSocket.getInputStream());
+                        outputStream.writeObject(encrypt(IGNORE));
+                        outputStream.writeObject(Boolean.TRUE);
+                        try (ServerSocket fileRecieveServer = new ServerSocket(25100);
+                             Socket fileRecieveSocket = fileRecieveServer.accept();
+                             ObjectInputStream fileInputStream = new ObjectInputStream(fileRecieveSocket.getInputStream());
+                             FileOutputStream fos = new FileOutputStream(recieveFile);
+                             BufferedOutputStream bos = new BufferedOutputStream(fos);
+                             ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileRecieveSocket.getOutputStream())) {
                             length = (long) fileInputStream.readObject();
                             byte[] decrypt_key = decrypt((byte[]) fileInputStream.readObject());
                             assert decrypt_key != null;
                             recievekey = new SecretKeySpec(decrypt_key, "AES");
                             fileDecrypt = Cipher.getInstance("AES/CBC/PKCS5Padding");
                             fileDecrypt.init(Cipher.DECRYPT_MODE, recievekey, ivspec);
-                            boolean progressBarPresent=setProgressBar(length);
+                            progressBarPresent = setProgressBar(length);
                             assert recieveFile != null;
-                            FileOutputStream writer = new FileOutputStream(recieveFile);
-                            BufferedOutputStream bos = new BufferedOutputStream(writer);
                             byte[] fileBuffer;
+                            s = new SenderCancelledCheckerTask(objectOutputStream);
+                            new Thread(s).start();
                             while (current < length && !isCancelled()) {
-                                System.out.println("in recieve loop");
                                 fileBuffer = fileDecrypt.doFinal((byte[]) fileInputStream.readObject());
                                 bos.write(fileBuffer);
                                 current += fileBuffer.length;
-                                updateProgressBar(current,length, progressBarPresent);
+                                updateProgressBar(current, length, progressBarPresent);
                             }
-                            updateFileInformationInChatBox("File Recieved :", recieveFile);
+                            if (!isCancelled())
+                                updateFileInformationInChatBox("File Recieved :", recieveFile);
+                            else
+                                Platform.runLater(() -> updateScreen("File transfer cancelled by user. Recieved: " + current / 1024 + "KB",
+                                        ""));
                             closeProgressBar(progressBarPresent);
-                            bos.flush();
-                            bos.close();
-                            writer.close();
                             System.out.println("file recieved");
-                        } catch (IOException | ClassNotFoundException | NoSuchPaddingException | InvalidKeyException | NoSuchAlgorithmException | BadPaddingException | InvalidAlgorithmParameterException | IllegalBlockSizeException e) {
+                        } catch (IOException e) {
                             e.printStackTrace();
-                        } finally {
-                            try {
-                                if (fileRecieveSocket != null) {
-                                    fileRecieveSocket.close();
-                                }
-                                if (fileInputStream != null) {
-                                    fileInputStream.close();
-                                }
-                                if (fileRecieveServer != null) {
-                                    fileRecieveServer.close();
-                                }
-                            } catch (IOException e) {
-                                e.printStackTrace();
+                            if (!isCancelled()) {
+                                Platform.runLater(() -> alertBuilder(Alert.AlertType.ERROR, "Sending failed",
+                                        FRIEND + " has cancelled sending the file or the connection was interrupted."));
                             }
+                            closeProgressBar(progressBarPresent);
+                        } catch (ClassNotFoundException | NoSuchPaddingException | NoSuchAlgorithmException | BadPaddingException | InvalidAlgorithmParameterException | IllegalBlockSizeException | InvalidKeyException e) {
+                            e.printStackTrace();
                         }
                     } else {
                         outputStream.writeObject(IGNORE);
-                        fileRecieveServer = new ServerSocket(25100);
                         outputStream.writeObject(Boolean.TRUE);
+                        ServerSocket fileRecieveServer = new ServerSocket(25100);
                         System.out.println("Confirmaton sent.");
-                        try {
-                            fileRecieveSocket = fileRecieveServer.accept();
-                            System.out.println("Connection accepted");
-                            fileInputStream = new ObjectInputStream(fileRecieveSocket.getInputStream());
-                            length = (long) fileInputStream.readObject();
-                            assert recieveFile != null;
-                            boolean progressBarPresent = setProgressBar(length);
-                            System.out.println("Created progress Bar");
-                            writer = new FileOutputStream(recieveFile);
-                            bos = new BufferedOutputStream(writer);
+                        try (Socket fileRecieveSocket = fileRecieveServer.accept();
+                             ObjectInputStream fileRecieveStream = new ObjectInputStream(fileRecieveSocket.getInputStream());
+                             FileOutputStream writer = new FileOutputStream(recieveFile);
+                             BufferedOutputStream bos = new BufferedOutputStream(writer);
+                             ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileRecieveSocket.getOutputStream())) {
+                            length = (long) fileRecieveStream.readObject();
+                            s = new SenderCancelledCheckerTask(objectOutputStream);
+                            new Thread(s).start();
+                            progressBarPresent = setProgressBar(length);
                             byte[] fileBuffer;
                             while (current < length && !isCancelled()) {
-                                System.out.println("in recieve loop");
-                                fileBuffer = (byte[]) fileInputStream.readObject();
+                                fileBuffer = (byte[]) fileRecieveStream.readObject();
                                 bos.write(fileBuffer);
                                 current += fileBuffer.length;
-                                updateProgressBar(current,length,progressBarPresent);
+                                updateProgressBar(current, length, progressBarPresent);
                             }
-                            updateFileInformationInChatBox("File Recieved :", recieveFile);
+                            if (!isCancelled())
+                                updateFileInformationInChatBox("File Recieved :", recieveFile);
+                            else
+                                Platform.runLater(() -> updateScreen("File transfer cancelled by user. Recieved: " + current / 1024 + "KB",
+                                        ""));
                             closeProgressBar(progressBarPresent);
-                            bos.close();
-                            writer.close();
                             System.out.println("file recieved");
-                        } catch (IOException | ClassNotFoundException e) {
+                        } catch (IOException e) {
                             e.printStackTrace();
-                        } finally {
-                            try {
-                                fileRecieveServer.close();
-                                if (fileRecieveSocket != null) {
-                                    fileRecieveSocket.close();
-                                }
-                                if (fileInputStream != null) {
-                                    fileInputStream.close();
-                                }
-                            } catch (IOException e) {
-                                e.printStackTrace();
+                            if (!isCancelled()) {
+                                Platform.runLater(() -> alertBuilder(Alert.AlertType.ERROR, "Receiving failed",
+                                        FRIEND + " has cancelled sending the file or the connection was interrupted."));
                             }
+                            closeProgressBar(progressBarPresent);
+                        } catch (ClassNotFoundException e) {
+                            e.printStackTrace();
                         }
+                        s.cancel();
                     }
                     return null;
                 }
+
             };
         }
     }
 
-    //Also resets important parameter.
-    private void closeProgressBar(boolean progressBarPresent) {
-        if (progressBarPresent){
-         Platform.runLater(() -> {fileLoad.setProgress(0);
-         fileLoad.setVisible(false);
-         cancelSendning.setVisible(false);});
+    class FileSaveTask extends Task {
+        File file;
+        String data;
+
+        FileSaveTask(File file, String data) {
+            this.file = file;
+            this.data = data;
         }
-        reset();
+
+        @Override
+        protected Object call() throws Exception {
+            try (PrintWriter out = new PrintWriter(file.getName())) {
+                out.println(data);
+            }
+            return null;
+        }
     }
 
-    private void reset(){
-        gotConfirmation.set(false);
-        fileSendingMode=false;
+    class SenderCancelledCheckerTask extends Task {
+        ObjectOutputStream senderOnChecker;
+
+        SenderCancelledCheckerTask(ObjectOutputStream senderOnChecker) {
+            this.senderOnChecker = senderOnChecker;
+        }
+
+        @Override
+        protected Object call() throws Exception {
+            try {
+                Thread.sleep(5000);
+                while (!isCancelled()) {
+                    senderOnChecker.writeObject(isRunning);
+                    System.out.println("Sent Message");
+                    Thread.sleep(5000);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                System.out.println("Stream is closing");
+                senderOnChecker.close();
+                System.out.println("cancel output can send message too");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            return null;
+        }
+    }
+
+    class RecieverFeedbackRecieveTask extends Task {
+        ObjectInputStream obj;
+
+        RecieverFeedbackRecieveTask(ObjectInputStream feedbackInputStream) {
+            this.obj = feedbackInputStream;
+        }
+
+        @Override
+
+        protected Object call() {
+            try {
+                while (obj != null) {
+                    System.out.println((String) obj.readObject());
+                }
+            } catch (IOException | ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+            return null;
+        }
     }
 }
-
 //TODO Implement cancelling of file transfer

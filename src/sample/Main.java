@@ -6,8 +6,13 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+
+import static sample.Constant.*;
 
 public class Main extends Application {
     public static void main(String[] args) {
@@ -27,17 +32,24 @@ public class Main extends Application {
 
     //To close sockets when close butoon is clicked
     @Override
-    public void stop() throws Exception {
-        if (ControllerIndex.encryptionState && ControllerIndex.outputStream != null){
-            byte[] sendBuffer = ControllerChat.encryptCipher.doFinal(Base64.getEncoder().encode(ControllerChat.EXIT.getBytes(StandardCharsets.UTF_8)));
-            ControllerIndex.outputStream.writeObject(sendBuffer);
+    public void stop() {
+        if (encryptionState && s.isConnected()){
+            byte[] sendBuffer;
+            try {
+                sendBuffer = encryptCipher.doFinal(Base64.getEncoder().encode(EXIT.getBytes(StandardCharsets.UTF_8)));
+                outputStream.writeObject(sendBuffer);
+                if (outputStream != null)
+                    outputStream.close();
+                if (listener != null)
+                    listener.close();
+                if (s != null)
+                    s.close();
+            } catch (IllegalBlockSizeException | BadPaddingException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                System.out.println("Stream already closed.");
+            }
         }
-        if (ControllerIndex.outputStream != null)
-            ControllerIndex.outputStream.close();
-        if (ControllerIndex.listener != null)
-            ControllerIndex.listener.close();
-        if (ControllerIndex.s != null)
-            ControllerIndex.s.close();
     }
 }
 

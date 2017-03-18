@@ -11,4 +11,7 @@ OVERRIDE STOP METHOD in main class to close all connections and stuff before exi
 the initialize method is executed when fxml loader is called.
 
 Objectinputstream is a blocking type
+
  thus we have to write alternate for it to work.
+
+ protocol to understand outputstream

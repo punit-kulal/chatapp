@@ -1,10 +1,24 @@
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <GridPane xmlns:fx="http://javafx.com/fxml"
           fx:controller="sample.ControllerChat" alignment="center" hgap="10" vgap="10">
     <Button fx:id="closeSession" onAction="#exit" GridPane.columnIndex="0" GridPane.columnSpan="1" GridPane.rowIndex="0"
             GridPane.rowSpan="1">Close Session
+    </Button>
+    <ProgressBar fx:id="fileLoad" visible="false" GridPane.columnIndex="5" GridPane.columnSpan="2" GridPane.rowIndex="0"
+                 GridPane.rowSpan="1"></ProgressBar>
+    <Button fx:id="cancelSendning" onAction="#cancelSend" visible="false" GridPane.columnIndex="7" GridPane.columnSpan="2" GridPane.rowIndex="0"
+            GridPane.rowSpan="1">Cancel
+    </Button>
+    <Button fx:id="Browse" onAction="#setFile" GridPane.columnIndex="8" GridPane.columnSpan="1" GridPane.rowIndex="0"
+            GridPane.rowSpan="1">Browse</Button>
+    <TextField fx:id="toBeSentFile" GridPane.columnIndex="9" GridPane.columnSpan="1" GridPane.rowIndex="0"
+               GridPane.rowSpan="1" promptText="None"></TextField>
+    <Button fx:id="sendFile" onAction="#sendFile" GridPane.columnIndex="10" GridPane.columnSpan="1" GridPane.rowIndex="0"
+            GridPane.rowSpan="1">Send File</Button>
+    <Button fx:id="saveChat" onAction="#saveChat" GridPane.columnIndex="10" GridPane.columnSpan="1"
+            GridPane.rowIndex="2"
+            GridPane.rowSpan="1">Save Chat
     </Button>
     <TextArea fx:id="chat" GridPane.columnIndex="0" GridPane.columnSpan="10" GridPane.rowIndex="1"
               GridPane.rowSpan="10" editable="false" promptText="Your chat will appear here." minHeight="200" minWidth="200">
@@ -15,4 +29,5 @@
     <Button fx:id="send" onAction="#sendMessage" GridPane.columnIndex="8" GridPane.columnSpan="1" GridPane.rowIndex="11"
             GridPane.rowSpan="1">Send
     </Button>
+
 </GridPane>

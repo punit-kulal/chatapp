@@ -1,6 +1,5 @@
 package sample;
 
-import com.google.gson.Gson;
 import javafx.application.Platform;
 import javafx.concurrent.Service;
 import javafx.concurrent.Task;
@@ -27,22 +26,14 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.HashMap;
 
+import static sample.Constant.*;
+
 public class ControllerIndex {
-    static final String ME = "ME";
-    static String FRIEND = "FRIEND";
-    static ObjectInputStream inputStream;
-    static ObjectOutputStream outputStream;
-    static Socket s;
-    static ServerSocket listener;
-    static HashMap contacts = new HashMap<>();
-    static Gson converter = new Gson();
-    static Boolean encryptionState = false;
-    static PrivateKey privateKey = null;
-    static PublicKey publicKey = null;
+
+
     public Button server;
     public Button client;
     public TextField ipaddressField;
@@ -89,14 +80,12 @@ public class ControllerIndex {
             @Override
             protected Void call() throws IOException, ClassNotFoundException {
                 ipAddress = ipaddressField.getText();
-                System.out.println("1 " + ipAddress);
                 if (Files.exists(Paths.get("contact.json"))) {
                     FileReader reader = new FileReader("contact.json");
                     contacts = converter.fromJson(reader, HashMap.class);
                 }
                 //Check storage when ipaddress is empty
                 if (ipaddressField.getText().equals("")) {
-                    System.out.println(3);
                     //Check if contacts are empty.
                     if (contacts.isEmpty()) {
                         updateMessage("Contacts is empty.\n Please provide a friend name and valid ipaddress.");
@@ -138,7 +127,6 @@ public class ControllerIndex {
                     System.out.println("recieved public");
                 } else
                     {outputStream.writeObject(Boolean.FALSE);
-                    outputStream.flush();
                     }
                 return null;
             }

@@ -23,6 +23,7 @@ public class Main extends Application {
         Parent root = FXMLLoader.load(getClass().getResource("index.fxml"));
         primaryStage.setTitle("ChatApp");
         Scene index = new Scene(root, 600, 275);
+            //index.style
         primaryStage.setScene(index);
         primaryStage.setMinHeight(450);
         primaryStage.setMinWidth(400);

@@ -1,37 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<GridPane xmlns:fx="http://javafx.com/fxml"
-          fx:controller="sample.ControllerIndex" alignment="center" hgap="10" vgap="10">
+<GridPane xmlns:fx="http://javafx.com/fxml/1" alignment="center" hgap="10" stylesheets="@index.css" vgap="10"
+          xmlns="http://javafx.com/javafx/8.0.91" fx:controller="sample.ControllerIndex">
 
-    <Label text="MyName" GridPane.columnIndex="0" GridPane.columnSpan="1" GridPane.rowIndex="0">
+    <Label style="-fx-text-fill: #ffffff;" text="MyName" GridPane.columnIndex="0" GridPane.columnSpan="1"
+           GridPane.rowIndex="0">
 
     </Label>
-    <TextField fx:id="me" id="Me" GridPane.columnIndex="1" GridPane.columnSpan="2" GridPane.rowIndex="0">
+    <TextField id="Me" fx:id="me" GridPane.columnIndex="1" GridPane.columnSpan="2" GridPane.rowIndex="0">
     </TextField>
 
-    <Label GridPane.columnIndex="0" GridPane.columnSpan="1" GridPane.rowIndex="1">
-    Friend Name
+    <Label style="-fx-text-fill: #ffffff;" stylesheets="@index.css" text="Friend Name" GridPane.columnIndex="0"
+           GridPane.columnSpan="1" GridPane.rowIndex="1">
+        Friend Name
 </Label>
-    <TextField fx:id="friend" id="friend" GridPane.columnIndex="1" GridPane.columnSpan="2" GridPane.rowIndex="1">
+    <TextField id="friend" fx:id="friend" GridPane.columnIndex="1" GridPane.columnSpan="2" GridPane.rowIndex="1">
     </TextField>
-    <Label GridPane.columnIndex="0" GridPane.columnSpan="1" GridPane.rowIndex="2">
+    <Label style="-fx-text-fill: #ffffff;" GridPane.columnIndex="0" GridPane.columnSpan="1" GridPane.rowIndex="2">
         IP Address
     </Label>
-    <TextField fx:id="ipaddressField" GridPane.columnIndex="1" GridPane.columnSpan="2" GridPane.rowIndex="2" >
+    <TextField fx:id="ipaddressField" GridPane.columnIndex="1" GridPane.columnSpan="2" GridPane.rowIndex="2">
 
     </TextField>
     <Button fx:id="client" onAction="#actasClient" GridPane.columnIndex="3" GridPane.columnSpan="1"
             GridPane.rowIndex="2">
         Connect
     </Button>
-    <HBox GridPane.columnIndex="0" GridPane.columnSpan="2" GridPane.rowIndex="4" alignment="BASELINE_CENTER">
-        <Button fx:id="server" onAction="#actAsServer">
-            Wait for Connection
-        </Button>
-        <Button fx:id="cancelServer"
-                onAction="#cancelServer" visible="false">
-            Go Back
-        </Button>
-        <CheckBox fx:id="encryption">Encryption</CheckBox>
-    </HBox>
+    <CheckBox fx:id="encryption" style="-fx-text-fill: #ffffff;" GridPane.columnIndex="1" GridPane.columnSpan="1"
+              GridPane.rowIndex="4">Encryption
+    </CheckBox>
+    <Button fx:id="server" onAction="#actAsServer" GridPane.columnIndex="3" GridPane.columnSpan="1"
+            GridPane.rowIndex="4">
+        Wait for Connection
+    </Button>
+    <Button fx:id="cancelServer" onAction="#cancelServer" visible="false" GridPane.columnIndex="3"
+            GridPane.columnSpan="1" GridPane.rowIndex="4">
+        Go Back
+    </Button>
+    <columnConstraints>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+    </columnConstraints>
+    <rowConstraints>
+        <RowConstraints/>
+        <RowConstraints/>
+        <RowConstraints/>
+        <RowConstraints/>
+        <RowConstraints/>
+    </rowConstraints>
 </GridPane>

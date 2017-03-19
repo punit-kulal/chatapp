@@ -33,7 +33,6 @@ import static sample.Constant.*;
 
 public class ControllerIndex {
 
-
     public Button server;
     public Button client;
     public TextField ipaddressField;
@@ -41,6 +40,8 @@ public class ControllerIndex {
     public TextField me;
     public TextField friend;
     public CheckBox encryption;
+    private boolean myEncryptionState = false;
+    private boolean friendEncryptionState = false;
     private Task<KeyPair> keypairGenerator = new Task<KeyPair>() {
         @Override
         protected KeyPair call() throws Exception {
@@ -50,15 +51,12 @@ public class ControllerIndex {
     private String ipAddress;
     private KeyPair keyPair = null;
     private ListenService listenService = new ListenService();
-    private EventHandler<WorkerStateEvent> closeEvent = new EventHandler<WorkerStateEvent>() {
-        @Override
-        public void handle(WorkerStateEvent event) {
-            try {
-                if (listener != null)
-                    listener.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+    private EventHandler<WorkerStateEvent> closeEvent = event -> {
+        try {
+            if (listener != null)
+                listener.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     };
 
@@ -79,7 +77,12 @@ public class ControllerIndex {
         Task clientConnector = new Task() {
             @Override
             protected Void call() throws IOException, ClassNotFoundException {
+                myEncryptionState = encryption.isSelected();
                 ipAddress = ipaddressField.getText();
+                if (!friend.getText().equals("")) {
+                    Friend = friend.getText();
+                }
+                //Read from existing contact.json file.
                 if (Files.exists(Paths.get("contact.json"))) {
                     FileReader reader = new FileReader("contact.json");
                     contacts = converter.fromJson(reader, HashMap.class);
@@ -98,7 +101,7 @@ public class ControllerIndex {
                     }
                     //Assign friend ipadress if friend name is present.
                     if (contacts.containsKey(friend.getText().toLowerCase())) {
-                        ipAddress = (String) contacts.get(friend.getText().toLowerCase());
+                        ipAddress = contacts.get(friend.getText().toLowerCase());
                     }
                 }
                 s = new Socket(ipAddress, 25000);
@@ -116,18 +119,21 @@ public class ControllerIndex {
                     writer.close();
                 }
                 //keypairSharing
-                if (encryption.isSelected()) {
+                outputStream.writeObject(myEncryptionState);
+                friendEncryptionState = (boolean) inputStream.readObject();
+                encryptionState = friendEncryptionState || myEncryptionState;
+                if (encryptionState) {
                     privateKey = keyPair.getPrivate();
-                    encryptionState = true;
-                    outputStream.writeObject(Boolean.TRUE);
-                    System.out.println("sent true");
                     outputStream.writeObject(keyPair.getPublic());
-                    System.out.println("sent public");
                     publicKey = (PublicKey) inputStream.readObject();
-                    System.out.println("recieved public");
-                } else
-                    {outputStream.writeObject(Boolean.FALSE);
-                    }
+                    Platform.runLater(() -> alertBuilder(Alert.AlertType.INFORMATION, "Encryption", "Your messages are now encrypted."));
+                }
+                //Set friend name if supplied
+                if (!friend.getText().equals(""))
+                    Friend = friend.getText();
+                //Set my name which is used when sending messages.
+                if (!me.getText().equals(""))
+                    MyName = me.getText();
                 return null;
             }
         };
@@ -150,7 +156,7 @@ public class ControllerIndex {
             } else {
                 Alert emptyIP = new Alert(Alert.AlertType.WARNING);
                 emptyIP.setTitle("Connection Error");
-                emptyIP.setContentText(clientConnector.getMessage());
+                emptyIP.setContentText("Reason Unknown.");
                 emptyIP.showAndWait();
             }
         });
@@ -168,7 +174,7 @@ public class ControllerIndex {
         }
         assert chatnode != null;
         chatnode.getProperties().put(ME, me.getText());
-        chatnode.getProperties().put(FRIEND, friend.getText());
+        chatnode.getProperties().put(Friend, friend.getText());
         Scene chatbox = new Scene(chatnode, 800, 400);
         Stage mystage = (Stage) n.getScene().getWindow();
         mystage.setTitle(title);
@@ -178,6 +184,7 @@ public class ControllerIndex {
     @FXML
     public void actAsServer() {
         //Start a service to listen as server
+        myEncryptionState = encryption.isSelected();
         listenService.start();
     }
 
@@ -186,12 +193,20 @@ public class ControllerIndex {
         //Close currently listening service and Enable buttons when server listen is cancelled.
         listenService.cancel();
         listenService.reset();
-        cancelServer.setVisible(false);
-        server.setDisable(false);
-        client.setDisable(false);
+        setButtons(true);
         //Reset title
         Stage mystage = (Stage) ((Node) actionEvent.getSource()).getScene().getWindow();
         mystage.setTitle("ChatApp");
+    }
+
+    //helsper maethod to set/unset buttons on server activation
+    private void setButtons(boolean b) {
+        cancelServer.setVisible(!b);
+        cancelServer.setDisable(b);
+        server.setVisible(b);
+        server.setDisable(!b);
+        client.setDisable(!b);
+        encryption.setDisable(!b);
     }
 
     // A service which listens for connection
@@ -201,7 +216,6 @@ public class ControllerIndex {
             Task t1 = new Task() {
                 @Override
                 protected Object call() throws IOException, ClassNotFoundException {
-                    encryption.setDisable(true);
                     try {
                         listener = new ServerSocket(25000);
                     } catch (IOException e) {
@@ -211,9 +225,7 @@ public class ControllerIndex {
                         Stage stage = (Stage) server.getScene().getWindow();
                         stage.setTitle("Waiting for Friend .... Please wait");
                         //Disabling connection buttons
-                        server.setDisable(true);
-                        client.setDisable(true);
-                        cancelServer.setVisible(true);
+                        setButtons(false);
                     });
                     try {
                         s = listener.accept();
@@ -222,13 +234,25 @@ public class ControllerIndex {
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
-                    encryptionState = (Boolean) inputStream.readObject();
+
+
+                    friendEncryptionState = (Boolean) inputStream.readObject();
+                    outputStream.writeObject(myEncryptionState);
+                    encryptionState = friendEncryptionState || myEncryptionState;
                     if (encryptionState) {
                         encryptionState = true;
                         privateKey = keyPair.getPrivate();
                         publicKey = (PublicKey) inputStream.readObject();
                         outputStream.writeObject(keyPair.getPublic());
+                        Platform.runLater(() -> alertBuilder(Alert.AlertType.INFORMATION, "Encryption", "Your messages are now encrypted."));
+
                     }
+                    //Set friend name if supplied
+                    if (!friend.getText().equals(""))
+                        Friend = friend.getText();
+                    //Set my name which is used when sending messages.
+                    if (!me.getText().equals(""))
+                        MyName = me.getText();
                     return null;
                 }
             };

@@ -1,0 +1,35 @@
+.root {
+    -fx-background-image: url("chatbackground.jpg");
+}
+
+.button {
+    -fx-text-fill: white;
+    -fx-font-family: "Arial Narrow";
+    -fx-font-weight: bold;
+    -fx-background-color: linear-gradient(#61a2b1, #2A5058);
+    -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.6), 5, 0.0, 0, 1);
+}
+
+.button:hover {
+    -fx-background-color: linear-gradient(#2A5058, #61a2b1);
+}
+
+.text-field {
+    -fx-font-style: italic;
+    -fx-font-weight: bold;
+    -fx-font-family: "Segoe UI Black";
+}
+
+.text-area {
+    -fx-font-style: italic;
+    -fx-font-weight: bold;
+    -fx-font-family: "Segoe UI Black";
+}
+
+.cancel-button {
+    -fx-background-color: #c90a0a;
+    -fx-font-weight: bold;
+    -fx-border-color: #9b0606;
+}
+
+

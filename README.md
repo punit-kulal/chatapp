@@ -10,8 +10,8 @@
 ### **Dependencies**
 * [GSON](https://github.com/google/gson)
 
-###Screenshots
+### Screenshots
 
-![Home Screenshot](https://github.com/punit-kulal/chatapp/screeenshots/home.jpg "Home")
+![Home Screenshot](https://github.com/punit-kulal/chatapp/blob/master/screeenshots/home.jpg "Home")
 
-![Home Screenshot](https://github.com/punit-kulal/chatapp/screeenshots/file_sending.jpg "Home")
+![ChatScreen Screenshot](https://github.com/punit-kulal/chatapp/blob/master/screeenshots/file_sending.JPG "Home")

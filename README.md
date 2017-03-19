@@ -1,5 +1,5 @@
 # *Chatapp*
-A **JavaFX**  based chat application which uses TCP connection to connect two friends to chat.
+### A **JavaFX**  based chat application which uses TCP connection to connect two friends to chat.
 
 * **Contact Storage**:It also stores contact information as Name, IP address in JSON format and also uses this contact data to avoid reentering of IP address.
 
@@ -7,3 +7,11 @@ A **JavaFX**  based chat application which uses TCP connection to connect two fr
 
 * **Encryption:** RSA 1024-bit key  for Text messages and 128 bit AES encryption for file transfer.
 
+### **Dependencies**
+* [GSON](https://github.com/google/gson)
+
+###Screenshots
+
+![Home Screenshot](https://github.com/punit-kulal/chatapp/screeenshots/home.jpg "Home")
+
+![Home Screenshot](https://github.com/punit-kulal/chatapp/screeenshots/file_sending.jpg "Home")

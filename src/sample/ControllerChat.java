@@ -40,16 +40,15 @@ public class ControllerChat {
     public Button Browse;
     public Button sendFile;
     public TextArea chat;
-    public TextArea input;
+    public TextField input;
     public Button send;
     public Button closeSession;
     public TextField toBeSentFile;
     public ProgressBar fileLoad;
-    public Button cancelSendning;
+    public Button cancelSending;
     public Button saveChat;
     private Cipher decryptCipher;
     private InputStreamService inputReader;
-    private String ME;
     private boolean fileSendingMode = false, set = false;
     private Task contactUpdater;
     private Base64.Encoder encoder;
@@ -68,6 +67,7 @@ public class ControllerChat {
 
     @FXML
     public void initialize() {
+        //Initialoze keys for encryption
         if (encryptionState) {
             try {
                 encoder = Base64.getEncoder();
@@ -84,15 +84,11 @@ public class ControllerChat {
                 protected SecretKey call() throws Exception {
                     KeyGenerator k = KeyGenerator.getInstance("AES");
                     k.init(128);
-                    System.out.println("ENERATing key");
                     return k.generateKey();
                 }
             };
             aes.addEventHandler(WorkerStateEvent.WORKER_STATE_SUCCEEDED, event ->
-            {
-                System.out.println("key Generated.");
-                sendfilekey = aes.getValue();
-            });
+                    sendfilekey = aes.getValue());
             new Thread(aes).start();
         }
         //A task which updates friends connection in the contact if not present.
@@ -103,8 +99,8 @@ public class ControllerChat {
                     FileReader reader = new FileReader("contact.json");
                     contacts = converter.fromJson(reader, HashMap.class);
                 }
-                if (!contacts.containsKey(FRIEND)) {
-                    contacts.put(FRIEND.toLowerCase(), s.getInetAddress().getHostAddress());
+                if (!contacts.containsKey(Friend)) {
+                    contacts.put(Friend.toLowerCase(), s.getInetAddress().getHostAddress());
                     String jsonMap = converter.toJson(contacts);
                     if (!Files.exists(Paths.get("contact.json")))
                         Files.createFile(Paths.get("contact.json"));
@@ -115,6 +111,7 @@ public class ControllerChat {
                 return null;
             }
         };
+        //Scroll automatically woth chAT
         chat.textProperty().addListener(observable -> chat.setScrollTop(Double.MAX_VALUE));
         //Task to keep on listening for input from stream
         inputReader = new InputStreamService();
@@ -123,8 +120,6 @@ public class ControllerChat {
 
     //Helper method to initialize the name of chatting
     private void setString() {
-        ME = (String) closeSession.getParent().getProperties().get(ME);
-        FRIEND = (String) closeSession.getParent().getProperties().get(FRIEND);
         set = true;
         new Thread(contactUpdater).start();
     }
@@ -137,7 +132,7 @@ public class ControllerChat {
             }
             s.close();
             //Alert for user
-            alertBuilder(Alert.AlertType.ERROR, "Connection closed.", "Seems like " + FRIEND + " has disconnected.");
+            alertBuilder(Alert.AlertType.ERROR, "Connection closed.", "Seems like " + Friend + " has disconnected.");
             //Load index page
             Parent node = FXMLLoader.load(getClass().getResource("index.fxml"));
             Stage mystage = (Stage) send.getScene().getWindow();
@@ -158,7 +153,7 @@ public class ControllerChat {
         if (!set)
             setString();
         try {
-            output = ME + ": " + msg;
+            output = MyName + ": " + msg;
             if (encryptionState) {
                 buffer = encrypt(output.getBytes(StandardCharsets.UTF_8));
                 //Not using write object
@@ -175,7 +170,7 @@ public class ControllerChat {
 
     //Helper method to update current screen
     private void updateScreen(String msg, String source) {
-        chat.appendText(source + msg + "\n");
+        chat.appendText(source.toUpperCase() + " " + msg + "\n");
         input.setText("");
     }
 
@@ -209,41 +204,46 @@ public class ControllerChat {
     }
 
     public void sendFile(ActionEvent actionEvent) {
+        //disable send key
+        sendFile.setDisable(true);
         sender = new SendFileService(encryptionState);
-        //fileLoad.progressProperty().bind(sender.progressProperty());
-        //sender.setOnSucceeded(event -> fileLoad.progressProperty().unbind());
+        //Enabling send button.
+        sender.setOnFailed(event -> sendFile.setDisable(false));
+        sender.setOnSucceeded(event -> sendFile.setDisable(false));
+        sender.setOnCancelled(event -> sendFile.setDisable(false));
         sender.start();
     }
 
     //Executes in bg thread.
-    private void recieveFile() {
+    private void receiveFile() {
+        sendFile.setDisable(true);
         if (encryptionState) {
             recieveEncryptedFile();
         } else {
             AtomicBoolean resultValue = new AtomicBoolean(true);
             File recieveFile = null;
-            System.out.println("Recieveing file");
             try {
                 String fileName = (String) inputStream.readObject();
                 recieveFile = new File(fileName);
                 checkForOverwrite(recieveFile, resultValue);
                 //Replace filename after validation
                 if (!recieveFile.canWrite()) {
-                    //Alert recievefile cannot write
-                    System.out.println("No permission");
+                    //Alert recieve file cannot write to directory
                     outputStream.writeObject(IGNORE);
                     outputStream.writeObject(Boolean.FALSE);
                     Platform.runLater(() -> alertBuilder(Alert.AlertType.ERROR, "Error in recieving file.",
                             "You don't have permission to write in this directory."));
-                    return;
+                    sendFile.setDisable(false);
                 } else if (!resultValue.get()) {
+                    //Denied pemission to overwrite current file.
                     outputStream.writeObject(IGNORE);
                     outputStream.writeObject(Boolean.FALSE);
-                    return;
+                    sendFile.setDisable(false);
                 } else {//Give confirmation
                     File finalRecieveFile = recieveFile;
                     Platform.runLater(() -> {
                         recieveFileService = new RecieveFileService(finalRecieveFile);
+                        resetSendButtonOnCompletion(recieveFileService);
                         recieveFileService.start();
                     });
                 }
@@ -251,6 +251,12 @@ public class ControllerChat {
                 e.printStackTrace();
             }
         }
+    }
+
+    private void resetSendButtonOnCompletion(RecieveFileService recieveFileService) {
+        recieveFileService.setOnCancelled(event -> sendFile.setDisable(false));
+        recieveFileService.setOnSucceeded(event -> sendFile.setDisable(false));
+        recieveFileService.setOnFailed(event -> sendFile.setDisable(false));
     }
 
     private void checkForOverwrite(File recieveFile, AtomicBoolean resultValue) throws IOException {
@@ -266,7 +272,6 @@ public class ControllerChat {
 
     private void recieveEncryptedFile() {
         File recieveFile = null;
-        System.out.println("Recieveing file");
         AtomicBoolean resultValue = new AtomicBoolean(true);
         try {
             String fileName = getDecryptedString((byte[]) inputStream.readObject());
@@ -275,20 +280,20 @@ public class ControllerChat {
             checkForOverwrite(recieveFile, resultValue);
             if (!recieveFile.canWrite()) {
                 //Alert recievefile cannot write
-                System.out.println("No permission");
                 outputStream.writeObject(encrypt(IGNORE));
                 outputStream.writeObject(Boolean.FALSE);
                 Platform.runLater(() -> alertBuilder(Alert.AlertType.ERROR, "Error in recieving file.",
                         "You don't have permission to write in this directory."));
-                return;
+                sendFile.setDisable(false);
             } else if (!resultValue.get()) {
                 outputStream.writeObject(encrypt(IGNORE));
                 outputStream.writeObject(Boolean.FALSE);
-                return;
+                sendFile.setDisable(false);
             } else {//Give confirmation
                 File finalRecieveFile = recieveFile;
                 Platform.runLater(() -> {
                     recieveFileService = new RecieveFileService(finalRecieveFile);
+                    resetSendButtonOnCompletion(recieveFileService);
                     recieveFileService.start();
                 });
             }
@@ -346,13 +351,6 @@ public class ControllerChat {
         return null;
     }
 
-    private void alertBuilder(Alert.AlertType alertType, String headerText, String contentText) {
-        Alert alert = new Alert(alertType);
-        alert.setHeaderText(headerText);
-        alert.setContentText(contentText);
-        alert.show();
-    }
-
     public void setFile(ActionEvent actionEvent) {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Select file to send.");
@@ -372,7 +370,7 @@ public class ControllerChat {
             Platform.runLater(() -> {
                 fileLoad.setProgress(0);
                 fileLoad.setVisible(true);
-                cancelSendning.setVisible(true);
+                cancelSending.setVisible(true);
             });
             return true;
         }
@@ -385,12 +383,10 @@ public class ControllerChat {
 
     public void cancelSend(ActionEvent actionEvent) {
         if (sender != null && sender.isRunning()) {
-            System.out.println("Sender Cancelling");
             sender.cancel();
             sender.reset();
         }
         if (recieveFileService != null && recieveFileService.isRunning()) {
-            System.out.println("Receiver Cancelling");
             recieveFileService.cancel();
             recieveFileService.reset();
         }
@@ -416,7 +412,7 @@ public class ControllerChat {
             Platform.runLater(() -> {
                 fileLoad.setProgress(0);
                 fileLoad.setVisible(false);
-                cancelSendning.setVisible(false);
+                cancelSending.setVisible(false);
             });
         }
         reset();
@@ -438,7 +434,6 @@ public class ControllerChat {
                         String msg;
                         if (fileSendingMode) {
                             confirm.set((Boolean) inputStream.readObject());
-                            System.out.println("set confirmation: " + confirm.get());
                             gotConfirmation.set(true);
                         }
                         if (encryptionState) {
@@ -450,10 +445,11 @@ public class ControllerChat {
                         if (msg.equals(EXIT))
                             break;
                         else if (msg.equals(OPFILE))
-                            recieveFile();
+                            receiveFile();
                         else if (msg.equals(IGNORE))
                             ;
                         else
+                            //Dont add source since sendr attaches his name;
                             Platform.runLater(() -> updateScreen(msg, ""));
                     }
                     //Quiting to index because server has left.
@@ -473,7 +469,6 @@ public class ControllerChat {
 
         private void sendUnencryptedFile(Task task) {
             fileSendingMode = true;
-            System.out.println("set mode true");
             File file = toSend;
             long length = file.length(), current = 0;
             int size;
@@ -487,10 +482,8 @@ public class ControllerChat {
                 } else {
                     outputStream.writeObject(OPFILE);
                     outputStream.writeObject(file.getName());
-                    System.out.println("about to enter loop");
                     while (!gotConfirmation.get())
                         ;
-                    System.out.println("passed confirmation area");
                     //checking whether ready to recieve in input service.
                 }
             } catch (IOException e) {
@@ -507,7 +500,7 @@ public class ControllerChat {
                      ObjectInputStream objectInputStream = new ObjectInputStream(fileSenderSocket.getInputStream())) {
                     fileSendingMode = false;
                     confirm.set(false);
-                    RecieverFeedbackRecieveTask t = new RecieverFeedbackRecieveTask(objectInputStream);
+                    ReceiverFeedbackReceiveTask t = new ReceiverFeedbackReceiveTask(objectInputStream);
                     new Thread(t).start();
                     progressBarPresent = setProgressBar(length);
                     fileSendStream.writeObject(length);
@@ -533,7 +526,7 @@ public class ControllerChat {
                     //If task cancelled by current user dont show error.
                     if (!task.isCancelled()) {
                         Platform.runLater(() -> alertBuilder(Alert.AlertType.ERROR, "Sending failed",
-                                FRIEND + " has cancelled recieving the file."));
+                                Friend + " has cancelled recieving the file."));
                     }
                     closeProgressBar(progressBarPresent);
                 }
@@ -560,17 +553,14 @@ public class ControllerChat {
                 } else {
                     outputStream.writeObject(encrypt(OPFILE));
                     outputStream.writeObject(encrypt(file.getName()));
-                    System.out.println("about to enter loop");
                     while (!gotConfirmation.get())
                         ;
-                    System.out.println("passed confirmation area");
                     //checking whether ready to recieve in input service.
                 }
             } catch (IOException e) {
                 e.printStackTrace();
             }
             //client ready to recieve.?
-            System.out.println(confirm.get());
             if (confirm.get()) {
                 boolean progressBarPresent = false;
                 try (Socket fileSenderSocket = new Socket(s.getInetAddress().getHostAddress(), 25100);
@@ -580,11 +570,8 @@ public class ControllerChat {
                      ObjectInputStream objectInputStream = new ObjectInputStream(fileSenderSocket.getInputStream())) {
                     fileSendingMode = false;
                     confirm.set(false);
-                    RecieverFeedbackRecieveTask t = new RecieverFeedbackRecieveTask(objectInputStream);
+                    ReceiverFeedbackReceiveTask t = new ReceiverFeedbackReceiveTask(objectInputStream);
                     new Thread(t).start();
-                    System.out.println("Sender entered in confirm loop");
-                    System.out.println("Trying to connect");
-                    System.out.println("Conneted successfully");
                     progressBarPresent = setProgressBar(length);
                     fileOuputStream.writeObject(length);
                     fileOuputStream.writeObject(encrypt(sendfilekey.getEncoded()));
@@ -611,13 +598,15 @@ public class ControllerChat {
                     long finalLength = length;
                     if (!task.isCancelled())
                         updateFileInformationInChatBox("File Sent ", file);
+                    else
+
                     toSend = null;
                     Platform.runLater(() -> toBeSentFile.setText(""));
                 } catch (IOException e) {
                     e.printStackTrace();
                     if (!task.isCancelled()) {
                         Platform.runLater(() -> Platform.runLater(() -> alertBuilder(Alert.AlertType.ERROR, "Sending failed",
-                                FRIEND + " has cancelled recieving the file.")));
+                                Friend + " has cancelled recieving the file.")));
                     }
                     closeProgressBar(progressBarPresent);
                 } catch (NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException e) {
@@ -634,7 +623,6 @@ public class ControllerChat {
             return new Task() {
                 @Override
                 protected Object call() throws Exception {
-                    System.out.println("service started.");
                     if (toSend == null) {
                         Platform.runLater(() -> alertBuilder(Alert.AlertType.WARNING, "Unable to send file", "No File Selected"));
                         return null;
@@ -700,12 +688,12 @@ public class ControllerChat {
                                 Platform.runLater(() -> updateScreen("File transfer cancelled by user. Recieved: " + current / 1024 + "KB",
                                         ""));
                             closeProgressBar(progressBarPresent);
-                            System.out.println("file recieved");
+                            //File receive completes here
                         } catch (IOException e) {
                             e.printStackTrace();
                             if (!isCancelled()) {
                                 Platform.runLater(() -> alertBuilder(Alert.AlertType.ERROR, "Sending failed",
-                                        FRIEND + " has cancelled sending the file or the connection was interrupted."));
+                                        Friend + " has cancelled sending the file or the connection was interrupted."));
                             }
                             closeProgressBar(progressBarPresent);
                         } catch (ClassNotFoundException | NoSuchPaddingException | NoSuchAlgorithmException | BadPaddingException | InvalidAlgorithmParameterException | IllegalBlockSizeException | InvalidKeyException e) {
@@ -715,7 +703,6 @@ public class ControllerChat {
                         outputStream.writeObject(IGNORE);
                         outputStream.writeObject(Boolean.TRUE);
                         ServerSocket fileRecieveServer = new ServerSocket(25100);
-                        System.out.println("Confirmaton sent.");
                         try (Socket fileRecieveSocket = fileRecieveServer.accept();
                              ObjectInputStream fileRecieveStream = new ObjectInputStream(fileRecieveSocket.getInputStream());
                              FileOutputStream writer = new FileOutputStream(recieveFile);
@@ -738,12 +725,11 @@ public class ControllerChat {
                                 Platform.runLater(() -> updateScreen("File transfer cancelled by user. Recieved: " + current / 1024 + "KB",
                                         ""));
                             closeProgressBar(progressBarPresent);
-                            System.out.println("file recieved");
                         } catch (IOException e) {
                             e.printStackTrace();
                             if (!isCancelled()) {
                                 Platform.runLater(() -> alertBuilder(Alert.AlertType.ERROR, "Receiving failed",
-                                        FRIEND + " has cancelled sending the file or the connection was interrupted."));
+                                        Friend + " has cancelled sending the file or the connection was interrupted."));
                             }
                             closeProgressBar(progressBarPresent);
                         } catch (ClassNotFoundException e) {
@@ -789,14 +775,11 @@ public class ControllerChat {
                 Thread.sleep(5000);
                 while (!isCancelled()) {
                     senderOnChecker.writeObject(isRunning);
-                    System.out.println("Sent Message");
                     Thread.sleep(5000);
                 }
             } catch (IOException e) {
                 e.printStackTrace();
-                System.out.println("Stream is closing");
                 senderOnChecker.close();
-                System.out.println("cancel output can send message too");
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -804,20 +787,18 @@ public class ControllerChat {
         }
     }
 
-    class RecieverFeedbackRecieveTask extends Task {
+    class ReceiverFeedbackReceiveTask extends Task {
         ObjectInputStream obj;
 
-        RecieverFeedbackRecieveTask(ObjectInputStream feedbackInputStream) {
+        ReceiverFeedbackReceiveTask(ObjectInputStream feedbackInputStream) {
             this.obj = feedbackInputStream;
         }
 
         @Override
-
         protected Object call() {
             try {
-                while (obj != null) {
-                    System.out.println((String) obj.readObject());
-                }
+                while (obj != null)
+                    obj.readObject();
             } catch (IOException | ClassNotFoundException e) {
                 e.printStackTrace();
             }
@@ -825,4 +806,3 @@ public class ControllerChat {
         }
     }
 }
-//TODO Implement cancelling of file transfer

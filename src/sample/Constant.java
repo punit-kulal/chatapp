@@ -1,6 +1,7 @@
 package sample;
 
 import com.google.gson.Gson;
+import javafx.scene.control.Alert;
 
 import javax.crypto.Cipher;
 import java.io.File;
@@ -23,9 +24,10 @@ class Constant {
     static final String FILEOVER = Integer.toString("FILE SENT".hashCode());
     static final String OPFILE = Integer.toString("FILE INCOMING".hashCode());
     static final String IGNORE = Integer.toString("IGNORE".hashCode());
-    static HashMap contacts = new HashMap<>();
+    static HashMap<String, String> contacts = new HashMap<>();
     static Gson converter = new Gson();
-    static String FRIEND = "FRIEND";
+    static String Friend = "Friend";
+    static String MyName = "ME";
     static ObjectInputStream inputStream;
     static ObjectOutputStream outputStream;
     static Socket s;
@@ -35,4 +37,11 @@ class Constant {
     static PublicKey publicKey = null;
     static Cipher encryptCipher;
     static File toSend;
+
+    static void alertBuilder(Alert.AlertType alertType, String headerText, String contentText) {
+        Alert alert = new Alert(alertType);
+        alert.setHeaderText(headerText);
+        alert.setContentText(contentText);
+        alert.show();
+    }
 }

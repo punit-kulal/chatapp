@@ -1,33 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<GridPane xmlns:fx="http://javafx.com/fxml"
-          fx:controller="sample.ControllerChat" alignment="center" hgap="10" vgap="10">
-    <Button fx:id="closeSession" onAction="#exit" GridPane.columnIndex="0" GridPane.columnSpan="1" GridPane.rowIndex="0"
-            GridPane.rowSpan="1">Close Session
+<GridPane xmlns:fx="http://javafx.com/fxml/1" alignment="center" hgap="10" stylesheets="@chatbox.css" vgap="10"
+          xmlns="http://javafx.com/javafx/8.0.91" fx:controller="sample.ControllerChat">
+    <Button fx:id="closeSession" cancelButton="true" onAction="#exit" GridPane.columnIndex="0" GridPane.columnSpan="1"
+            GridPane.rowIndex="0" GridPane.rowSpan="1">Close Session
     </Button>
     <ProgressBar fx:id="fileLoad" visible="false" GridPane.columnIndex="5" GridPane.columnSpan="2" GridPane.rowIndex="0"
-                 GridPane.rowSpan="1"></ProgressBar>
-    <Button fx:id="cancelSendning" onAction="#cancelSend" visible="false" GridPane.columnIndex="7" GridPane.columnSpan="2" GridPane.rowIndex="0"
-            GridPane.rowSpan="1">Cancel
+                 GridPane.rowSpan="1"/>
+    <Button id="cancelsending" fx:id="cancelSending" onAction="#cancelSend" styleClass="cancel-button"
+            stylesheets="@chatbox.css" visible="false" GridPane.columnIndex="7" GridPane.columnSpan="1"
+            GridPane.rowIndex="0" GridPane.rowSpan="1">X
     </Button>
-    <Button fx:id="Browse" onAction="#setFile" GridPane.columnIndex="8" GridPane.columnSpan="1" GridPane.rowIndex="0"
-            GridPane.rowSpan="1">Browse</Button>
-    <TextField fx:id="toBeSentFile" GridPane.columnIndex="9" GridPane.columnSpan="1" GridPane.rowIndex="0"
-               GridPane.rowSpan="1" promptText="None"></TextField>
-    <Button fx:id="sendFile" onAction="#sendFile" GridPane.columnIndex="10" GridPane.columnSpan="1" GridPane.rowIndex="0"
-            GridPane.rowSpan="1">Send File</Button>
+    <Button fx:id="Browse" onAction="#setFile" GridPane.columnIndex="8" GridPane.columnSpan="1"
+            GridPane.rowIndex="0" GridPane.rowSpan="1">Browse
+    </Button>
+    <TextField fx:id="toBeSentFile" promptText="No file selected" GridPane.columnIndex="9" GridPane.columnSpan="1"
+               GridPane.rowIndex="0" GridPane.rowSpan="1"/>
+    <Button fx:id="sendFile" onAction="#sendFile" prefHeight="25.0" prefWidth="69.0" GridPane.columnIndex="10"
+            GridPane.columnSpan="1" GridPane.fillWidth="true" GridPane.rowIndex="0" GridPane.rowSpan="1">Send File
+    </Button>
     <Button fx:id="saveChat" onAction="#saveChat" GridPane.columnIndex="10" GridPane.columnSpan="1"
-            GridPane.rowIndex="2"
-            GridPane.rowSpan="1">Save Chat
+            GridPane.rowIndex="1" GridPane.rowSpan="1">Save Chat
     </Button>
-    <TextArea fx:id="chat" GridPane.columnIndex="0" GridPane.columnSpan="10" GridPane.rowIndex="1"
-              GridPane.rowSpan="10" editable="false" promptText="Your chat will appear here." minHeight="200" minWidth="200">
+    <TextArea fx:id="chat" editable="false" minHeight="200" minWidth="200" promptText="Your chat will appear here."
+              GridPane.columnIndex="0" GridPane.columnSpan="10" GridPane.rowIndex="1" GridPane.rowSpan="10">
     </TextArea>
-    <TextArea fx:id="input" GridPane.columnIndex="0" GridPane.columnSpan="8" GridPane.rowIndex="11"
-              GridPane.rowSpan="1" promptText="Type your messages here" minWidth="200" minHeight="50">
-    </TextArea>
-    <Button fx:id="send" onAction="#sendMessage" GridPane.columnIndex="8" GridPane.columnSpan="1" GridPane.rowIndex="11"
-            GridPane.rowSpan="1">Send
+    <TextField fx:id="input" promptText="Type your messages here" GridPane.columnIndex="0" GridPane.columnSpan="10"
+               GridPane.rowIndex="11" GridPane.rowSpan="1" HBox.hgrow="ALWAYS"/>
+    <Button fx:id="send" onAction="#sendMessage" prefHeight="25.0" prefWidth="72.0" GridPane.columnIndex="10"
+            GridPane.columnSpan="8" GridPane.rowIndex="11" GridPane.rowSpan="1">Send
     </Button>
-
+    <columnConstraints>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+        <ColumnConstraints/>
+    </columnConstraints>
+    <rowConstraints>
+        <RowConstraints/>
+        <RowConstraints/>
+        <RowConstraints/>
+        <RowConstraints/>
+        <RowConstraints/>
+        <RowConstraints/>
+        <RowConstraints/>
+        <RowConstraints/>
+        <RowConstraints/>
+        <RowConstraints/>
+        <RowConstraints/>
+        <RowConstraints/>
+    </rowConstraints>
 </GridPane>

@@ -600,7 +600,7 @@ public class ControllerChat {
                         updateFileInformationInChatBox("File Sent ", file);
                     else
 
-                    toSend = null;
+                        toSend = null;
                     Platform.runLater(() -> toBeSentFile.setText(""));
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -702,8 +702,8 @@ public class ControllerChat {
                     } else {
                         outputStream.writeObject(IGNORE);
                         outputStream.writeObject(Boolean.TRUE);
-                        ServerSocket fileRecieveServer = new ServerSocket(25100);
-                        try (Socket fileRecieveSocket = fileRecieveServer.accept();
+                        try (ServerSocket fileRecieveServer = new ServerSocket(25100);
+                             Socket fileRecieveSocket = fileRecieveServer.accept();
                              ObjectInputStream fileRecieveStream = new ObjectInputStream(fileRecieveSocket.getInputStream());
                              FileOutputStream writer = new FileOutputStream(recieveFile);
                              BufferedOutputStream bos = new BufferedOutputStream(writer);
